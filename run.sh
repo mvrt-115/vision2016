@@ -4,7 +4,7 @@
 g++ main.cpp build/lazer-vision.so -o vision `pkg-config opencv --cflags --libs` --std=c++11 -I/usr/local/include/libfreenect -lfreenect -lfreenect_sync
 
 # Run executable using fakenect
-fakenect fakenect-testing/thanksgiving0 ./vision
+fakenect thanksgiving0 ./vision
 
 
 # Run executable using fakenect, but loop it
