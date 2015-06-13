@@ -2,6 +2,10 @@
 #include "input/freenect_cv.hpp"
 
 Input::Input() { } 
+Input::~Input()
+{
+	std::cout << "Kinect input closed." << std::endl;
+}
 
 void Input::getBGR(cv::Mat &out)
 {

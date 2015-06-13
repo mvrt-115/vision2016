@@ -48,6 +48,6 @@ obj/%.o: src/%.cpp
 
 ### create file tree ###
 .build_dir:
-	$(MKDIR) obj obj/input \
+	$(MKDIR) obj obj/input obj/filters \
 		build
 	$(TOUCH) .build_dir
