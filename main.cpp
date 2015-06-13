@@ -7,10 +7,12 @@
 #include "include/filters/RoboLaplacian.hpp"
 #include "include/filters/RoboDilateErode.hpp"
 #include "include/filters/RoboEdgeDetect.hpp"
-#include "include/filters/RoboGaussianBlur.hpp"
+//#include "include/filters/RoboGaussianBlur.hpp"
 #include "include/filters/RoboColorFilter.hpp"
 #include "include/filters/RoboHoughLines.hpp"
-#include "include/filters/select_mode.hpp"
+
+#include "include/filters/selectMode.hpp"
+#include "include/filters/roboGaussianBlurWindows.hpp"
 
 int main()
 {
@@ -21,13 +23,13 @@ int main()
 	// cv::namedWindow("Sharpen Editor", cv::WINDOW_AUTOSIZE);
 	// cv::namedWindow("Hough Lines Editor", cv::WINDOW_AUTOSIZE);	
 
-	// // Editor to select which filter(s) to apply
-	// int blur = 0;
-	// int color = 0;
-    // int dilate_erode = 0;
-	// int edge = 0;
-	// int laplacian = 0;
-	// int hough = 0; 
+	// Editor to select which filter(s) to apply
+	int blur = 0;
+	int color = 0;
+    int dilate_erode = 0;
+	int edge = 0;
+	int laplacian = 0;
+	int hough = 0; 
 	// cv::namedWindow("Efficiency Editor", cv::WINDOW_AUTOSIZE);
 	// cv::createTrackbar("Blur Filter", "Efficiency Editor", &blur, 1);
 	// cv::createTrackbar("Color Filter", "Efficiency Editor", &color, 1);
@@ -40,9 +42,9 @@ int main()
 	int blur_ksize = 1;
 	int sigmaX = 0;
 	int sigmaY = 0;
-	cv::createTrackbar("Kernel Size", "Blur Editor", &blur_ksize, 10);
-	cv::createTrackbar("Sigma X", "Blur Editor", &sigmaX, 100);
-	cv::createTrackbar("Sigma Y", "Blur Editor", &sigmaY, 100);
+	// cv::createTrackbar("Kernel Size", "Blur Editor", &blur_ksize, 10);
+	// cv::createTrackbar("Sigma X", "Blur Editor", &sigmaX, 100);
+	// cv::createTrackbar("Sigma Y", "Blur Editor", &sigmaY, 100);
 
 	// roboColorFilter  parameters
 	int hMin = 0;
@@ -115,28 +117,31 @@ int main()
 
 	for (;;)
 	{
-		// Reset all feed output windows
+		// Create all the calibration windows
+		selectMode(blur, color, dilate_erode, edge, laplacian, hough);
+
+		// Reset all the feed output windows
 		cv::destroyWindow("All Filtered");
 		
 		// Input rgb, depth, and ir feeds
 		input.getBGR(rgb);
 		rgb_orig = rgb.clone(); // Clone rgb input in order to merge at end
-		// cv::imshow("BGR Feed", rgb);
+		cv::imshow("BGR Feed", rgb);
 		
-		input.getDepth(depth);
+		// input.getDepth(depth);
 		// cv::imshow("Depth Feed", depth);
 	
+		//--- IR DOESN'T WORK WITH FAKENECT ---//
 		// input.getIR(ir);
 		// cv::imshow("IR Feed", ir);
 		
-		// Mat * channels = new Mat[3];
-		
-		if (blur) {
-			roboGaussianBlur(rgb, blur_ksize, sigmaX, sigmaY);
-			cv::imshow("Gaussian Blur Output", rgb);
-		} else if (!blur) {
-		 	cv::destroyWindow("Gaussian Blur Output");
-		}
+		//if (blur) {
+			//roboGaussianBlur(rgb, blur_ksize, sigmaX, sigmaY);
+			//cv::imshow("Gaussian Blur Output", rgb);
+			roboGaussianBlurWindows(rgb, blur_ksize, sigmaX, sigmaY, blur);
+		//} else if (!blur) {
+		 	//cv::destroyWindow("Gaussian Blur Output");
+		//}
 
 		if (color) {
 			roboColorFilter(rgb, hMin, hMax, sMin, sMax, vMin, vMax);
@@ -175,14 +180,11 @@ int main()
 			cv::imshow("All Filtered", rgb);
 		}
 
-		addWeighted(rgb, weight1, rgb_orig, weight2, 3, rgb);
-		//cv::imshow("Final Weighted Average", rgb);
-		//cv::imshow("Original", rgb_orig);
-		//delete [] channels;
+		// addWeighted(rgb, weight1, rgb_orig, weight2, 3, rgb);
+		// cv::imshow("Final Weighted Average", rgb);
 		
 		cv::waitKey(1);
 	}
-	std::cout << "test";
 
 	return 0;	
 }
