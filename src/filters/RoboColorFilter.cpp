@@ -1,34 +1,35 @@
 #include "filters/RoboColorFilter.hpp"
 
 void roboColorFilter(cv::Mat& in, int hMin, int hMax, int sMin, int sMax, int vMin, int vMax, bool bitAnd) {
-    bool hueAltered = false;
+	bool hueAltered = false;
 	bool satAltered = false;
 	bool valAltered = false;
 
-        cv::cvtColor(in, in, CV_BGR2HSV);
-        cv::Mat * channels = new cv::Mat[3];
-        cv::split(in, channels);
+    cv::cvtColor(in, in, CV_BGR2HSV);
+	cv::Mat * channels = new cv::Mat[3];
+	cv::split(in, channels);
 
-        if(hMin != 0 || hMax != 255)
-        {
+	if(hMin != 0 || hMax != 255)
+	{
 		hueAltered = true;
-                cv::inRange(channels[0], cv::Scalar(hMin), cv::Scalar(hMax), channels[0]);
-        }
-        if(sMin != 0 || sMax != 255)
-        {
+		cv::inRange(channels[0], cv::Scalar(hMin), cv::Scalar(hMax), channels[0]);
+	}
+	if(sMin != 0 || sMax != 255)
+	{
 		satAltered = true;
-                cv::inRange(channels[1], cv::Scalar(sMin), cv::Scalar(sMax), channels[1]);
+		cv::inRange(channels[1], cv::Scalar(sMin), cv::Scalar(sMax), channels[1]);
+		
 		if(hueAltered && bitAnd)
 		{
 			cv::bitwise_and(channels[0], channels[1], channels[0]);
 			channels[1] = channels[0].clone();
 		}
-        }
-        if(vMin != 0 || vMax != 255)
-        {
+	}
+	if(vMin != 0 || vMax != 255)
+	{
 		valAltered = true;
-                cv::inRange(channels[2], cv::Scalar(vMin), cv::Scalar(vMax), channels[2]);
-        }
+		cv::inRange(channels[2], cv::Scalar(vMin), cv::Scalar(vMax), channels[2]);
+	}
 	if(bitAnd)
 	{
 		if(hueAltered && valAltered && satAltered) //Sat, Value, Hue

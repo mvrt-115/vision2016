@@ -3,7 +3,6 @@
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
-#include <iostream>
 
 void roboLaplacian(cv::Mat& image, int ddepth, int sharpen_ksize, int scale, int delta);
 

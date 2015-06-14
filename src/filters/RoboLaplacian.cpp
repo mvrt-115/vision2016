@@ -2,6 +2,9 @@
 
 void roboLaplacian(cv::Mat& image, int ddepth, int sharpen_ksize, int scale, int delta)
 {
+	if ((sharpen_ksize % 2) == 0) // Even kernel sizes crash the program
+		sharpen_ksize++;
+
 	cv::Mat channels[3];
 
 	cv::cvtColor(image, image, cv::COLOR_RGB2GRAY); // HSV to grayscale
