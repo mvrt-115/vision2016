@@ -1,10 +1,14 @@
 #include "input/input.hpp"
 #include "input/freenect_cv.hpp"
 
-Input::Input() { } 
+Input::Input()
+{ 
+	std::cout << "Kinect input successfully opened." << std::endl;
+}
+
 Input::~Input()
 {
-	std::cout << "Kinect input closed." << std::endl;
+	std::cout << "Kinect input successfully closed." << std::endl;
 }
 
 void Input::getBGR(cv::Mat &out)

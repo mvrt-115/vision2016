@@ -1,6 +1,11 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <queue>
 #include <iostream>
+#include <string>
+
+#include "include/logs/writeToFile.hpp"
+#include "include/logs/currentDateTime.hpp"
 
 #include "include/input/input.hpp"
 
@@ -27,7 +32,7 @@ int main()
 	int sigmaX = 0;
 	int sigmaY = 0;
 
-	// roboColorFilter  parameters
+	// roboColorFilter parameters
 	int hMin = 0;
 	int hMax = 255;
 	int sMin = 0;
@@ -76,6 +81,7 @@ int main()
 	int weight2 = 1;
 
 	char kill = ' '; // Press q to quit the program
+	std::cout << "Press q to quit" << std::endl;
 
 	while (kill != 'q')
 	{
@@ -110,5 +116,61 @@ int main()
 		kill = cv::waitKey(1);
 	}
 	
+	std::queue <int> filter_params; // construct a queue for writing out all the parameter values to a file (run.log)
+	
+	// roboGaussianBlur parameters
+	filter_params.push(blur_ksize);
+	filter_params.push(sigmaX);
+	filter_params.push(sigmaY);
+
+	// roboColorFilter parameters
+	filter_params.push(hMin);
+	filter_params.push(hMax);
+	filter_params.push(sMin);
+	filter_params.push(sMax);
+	filter_params.push(vMin);
+	filter_params.push(vMax);
+	//filter_params.push(debugMode);
+	
+	// roboDilateErode parameters
+	filter_params.push(holes);
+	filter_params.push(noise);
+	filter_params.push(size);
+
+	// roboEdgeDetect parameters
+	filter_params.push(threshLow);
+	filter_params.push(threshHigh);
+	//filter_params.push(edge_ksize);
+	
+	// roboLaplacian parameters
+	filter_params.push(laplacian_ksize);
+	filter_params.push(scale);
+	filter_params.push(delta);
+	filter_params.push(ddepth);
+
+	// roboHoughLines parameters
+	filter_params.push(rho);
+	filter_params.push(theta);
+	filter_params.push(threshold);
+	filter_params.push(lineMin);
+	filter_params.push(maxGap);
+
+	std::string answer;
+	std::string filename;
+
+	std::cout << std::endl <<  "Would you like to name the file? (Y/N): ";
+	std::cin >> answer;
+
+	if ((answer == "y") || (answer == "Y") || (answer == "Yes") || (answer == "YES"))
+	{
+		std::cout << "What would you like to name the file?: ";
+		std::cin >> filename;
+	}
+	else 
+	{
+		filename = currentDateTime();
+	}
+	writeToFile ("logs/", filename, filter_params); // file path, file name, queue
+	std::cout << "File successfully made at 'logs/" << filename << "'" << std::endl << std::endl;	
 	return 0;	
 }
