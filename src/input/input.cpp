@@ -3,12 +3,12 @@
 
 Input::Input()
 { 
-	std::cout << "Kinect input successfully opened." << std::endl;
+	std::cout << std::endl << "Kinect input successfully opened." << std::endl << std::endl;
 }
 
 Input::~Input()
 {
-	std::cout << "Kinect input successfully closed." << std::endl;
+	std::cout << std::endl << "Kinect input successfully closed." << std::endl << std::endl;
 }
 
 void Input::getBGR(cv::Mat &out)
