@@ -1,9 +1,9 @@
 #include "logs/writeToFile.hpp"
 
-void writeToFile (const std::string file_path, const std::string file_name, std::queue<int> write_queue)
+void writeToFile ( const std::string &file_path, std::queue<int> write_queue)
 {	
 	std::ofstream file;
-	file.open (file_path + file_name, std::ios::out | std::ios::app); // Open file for writing
+	file.open (file_path, std::ios::out | std::ios::trunc); // Open file for writing, if it exists, delete its original contents
 	
 	if (file.is_open())
    	{
@@ -13,7 +13,11 @@ void writeToFile (const std::string file_path, const std::string file_name, std:
 			write_queue.pop(); // Release first element
 		}
 	}
-   	else std::cout << "Error - unable to open file for writing";
+
+   	else
+	{
+		throw std::runtime_error("Error - Unable to open file for writing.");
+	}
 
 	file.close();	
 }

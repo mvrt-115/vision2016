@@ -3,9 +3,9 @@
 
 #include <fstream>
 #include <queue>
-#include <iostream>
 #include <string>
+#include <stdexcept>
 
-void writeToFile (const std::string file_path, const std::string file_name, std::queue<int> write_queue);
+void writeToFile ( const std::string &file_path, std::queue<int> write_queue);
 
 #endif // WRITE_TO_FILE_HPP
