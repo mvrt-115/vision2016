@@ -6,4 +6,6 @@ The Kinect is able to produce RGB, Depth, and Infrared feed (although not at the
 
 ### Contributors
 - Min Hoo Lee
+- Marcus Plutowski
+- Lee Mracek
 
