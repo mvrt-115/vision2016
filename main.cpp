@@ -7,11 +7,11 @@
 #include <iostream>
 #include <string>
 
-#include "include/logs/writeToFile.hpp"
-#include "include/logs/readFromFile.hpp"
-#include "include/logs/currentDateTime.hpp"
-#include "include/logs/listFiles.hpp"
-#include "include/logs/enumCvType.hpp"
+#include "include/logging/writeToFile.hpp"
+#include "include/logging/readFromFile.hpp"
+#include "include/logging/currentDateTime.hpp"
+#include "include/logging/listFiles.hpp"
+#include "include/logging/enumCvType.hpp"
 
 #include "include/input/input.hpp"
 
