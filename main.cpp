@@ -279,9 +279,9 @@ int main( int argc, char *argv[] )
 	Input input; // Class holding input methods for fakenect
 
 	cv::VideoCapture camera(0);
-	if( !camera.isOpened() )
+	if( !camera.isOpened() && (argc < 2) )
 	{
-		std::cout << "Error - Unable to open Camera" << std::endl;
+		std::cout << "Error - Unable to open Camera at Port 0" << std::endl;
 		return -1;
 	}
 
@@ -355,6 +355,7 @@ int main( int argc, char *argv[] )
 		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
 		laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
 	
+#if 0
 		// List sizes of images
 		cv::Size rgbSize = rgb.size();
 		std::cout << "RGB:   [" << rgbSize.height << " x " << rgbSize.width <<  "]" << std::endl;
@@ -362,9 +363,10 @@ int main( int argc, char *argv[] )
 		std::cout << "Depth: [" << depthSize.height << " x " << depthSize.width << "]" << std::endl;
 		cv::Size imageSize = image.size();
 		std::cout << "Image: [" << imageSize.height << " x " << imageSize.width << "]" << std::endl;
-
+#endif
 		houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
 	
+#if 0
 		// List sizes of images
 		rgbSize = rgb.size();
 		std::cout << "RGB:   [" << rgbSize.height << " x " << rgbSize.width <<  "]" << std::endl;
@@ -372,7 +374,8 @@ int main( int argc, char *argv[] )
 		std::cout << "Depth: [" << depthSize.height << " x " << depthSize.width << "]" << std::endl;
 		imageSize = image.size();
 		std::cout << "Image: [" << imageSize.height << " x " << imageSize.width << "]" << std::endl;
-		
+#endif
+
 		if 		(choose_img == 0)	mergeFinalWindows(image, rgb_orig, depth, depth_orig, image, weight1, weight2, merge_type, apply_merge, merge);
 		else if (choose_img == 1)	mergeFinalWindows(rgb, rgb_orig, image, depth_orig, image, weight1, weight2, merge_type, apply_merge, merge);
 		
