@@ -313,7 +313,7 @@ int main( int argc, char *argv[] )
 			
 			if ( !rgb.data || !rgb_orig.data || !depth.data || !depth_orig.data ) // No data
 			{
-				std::cout << std::endl <<  "No image data" << std::endl;
+                std::cout << "No image data" << std::endl;
 				return -1;
 			}
 		}
