@@ -1,4 +1,4 @@
-#include "logs/listFiles.hpp"
+#include "logging/listFiles.hpp"
 
 int listFiles (std::string dir_name, std::string *dir_array, std::string *file_array, std::string *other_array)
 {

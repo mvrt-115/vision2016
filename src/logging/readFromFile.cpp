@@ -1,4 +1,4 @@
-#include "logs/readFromFile.hpp"
+#include "logging/readFromFile.hpp"
 
 void readFromFile (const std::string &file_path, std::queue<int> &read_queue)
 {

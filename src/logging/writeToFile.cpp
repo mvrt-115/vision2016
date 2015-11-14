@@ -1,4 +1,4 @@
-#include "logs/writeToFile.hpp"
+#include "logging/writeToFile.hpp"
 
 void writeToFile ( const std::string &file_path, std::queue<int> write_queue)
 {	
