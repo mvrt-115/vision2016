@@ -20,7 +20,7 @@ CFLAGS_RELEASE = -O3 -Wno-unused-value
 OBJS_RELEASE = $(patsubst src/%.cpp,obj/%.o,$(SRCS))
 
 CFLAGS = -Iinclude -static-libgcc -Wall -fno-use-linker-plugin -fno-exceptions -shared -fPIC
-CXXFLAGS = -static-libstdc++ -std=c++11 -Wall -Wextra -I/usr/local/include/libfreenect -fexceptions
+CXXFLAGS = -static-libstdc++ -std=c++11 -Wall -Wextra -fexceptions
 
 deploy: .build_dir build/lazer-vision.so
 
