@@ -2,4 +2,5 @@
 
 ### Contributors
 - Min Hoo Lee
+- Jeremy Tien
 
