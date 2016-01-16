@@ -2,8 +2,7 @@
 
 ### Contributors
 - Min Hoo Lee
-- Michael Wan
 - Nathan Ang
 - Jeremy Tien
 - Sahas Munamala
-
+- Michael Wan
