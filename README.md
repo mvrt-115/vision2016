@@ -3,6 +3,6 @@
 ### Contributors
 - Min Hoo Lee
 - Michael Wan
-- Nathan Ang (not in electrical)
+- Nathan Ang
 - Jeremy Tien
 
