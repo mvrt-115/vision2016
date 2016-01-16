@@ -5,4 +5,4 @@
 - Nathan Ang
 - Jeremy Tien
 - Sahas Munamala
-- <b>Michael Wan</b> //test
+- Michael Wan
