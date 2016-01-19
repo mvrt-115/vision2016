@@ -15,12 +15,50 @@
 #include "include/filters/mergeFinalWindows.hpp"
 #include "include/filters/depthDistanceWindows.hpp"
 
-int main( int argc, char *argv[] )
+void drawBoundedRects(cv::Mat& src, int thresh)
+{
+ 	cv::Mat threshold_output;
+ 	std::vector<std::vector<cv::Point> > contours;
+ 	std::vector<cv::Vec4i> hierarchy;
+ 
+	// Convert src to gray format
+	cv::cvtColor(src, threshold_output, CV_BGR2GRAY);
+
+ 	/// Detect edges using Threshold
+ 	cv::threshold(threshold_output, threshold_output, thresh, 255, cv::THRESH_BINARY);
+ 	/// Find contours
+ 	cv::findContours(threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+ 
+ 	/// Approximate contours to polygons + get bounding rects and circles
+ 	std::vector<std::vector<cv::Point> > contours_poly( contours.size() );
+ 	std::vector<cv::Rect> boundRect(contours.size());
+
+ 	for(int i = 0; i < contours.size(); i++)
+ 	{
+ 		cv::approxPolyDP(cv::Mat(contours[i]), contours_poly[i], 3, true);
+ 		boundRect[i] = cv::boundingRect(cv::Mat(contours_poly[i]));
+ 	}
+ 
+ 	/// Draw polygonal contour + bonding rects + circles
+ 	cv::Mat drawing = cv::Mat::zeros(threshold_output.size(), CV_8UC3);
+ 	for(int i = 0; i < contours.size(); i++)
+ 	{
+ 		cv::Scalar color = cv::Scalar(0, 0, 255);
+ 		cv::drawContours(drawing, contours_poly, i, color, 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
+ 		cv::rectangle(drawing, boundRect[i].tl(), boundRect[i].br(), color, 2, 8, 0);
+ 	}
+ 
+ 	/// Show in a window
+ 	cv::namedWindow("Contours", CV_WINDOW_AUTOSIZE);
+ 	cv::imshow("Contours", drawing);
+}
+
+int main( int argc, char *argv[])
 {
 	// Parameters for selecting which filters to apply
 	int blur = 0; 
 	int color = 0;
-    int dilate_erode = 0;
+    	int dilate_erode = 0;
 	int edge = 0;
 	int laplacian = 0;
 	int hough = 0; 
@@ -30,7 +68,7 @@ int main( int argc, char *argv[] )
 	// Parameters for applying filters even if windows are closed
 	int apply_blur = 0; 
 	int apply_color = 0;
-    int apply_dilate_erode = 0;
+    	int apply_dilate_erode = 0;
 	int apply_edge = 0;
 	int apply_laplacian = 0;
 	int apply_hough = 0; 
@@ -44,7 +82,7 @@ int main( int argc, char *argv[] )
 
 	// hsvColorThreshold parameters
 	int hMin = 0;
-	int hMax = 255;
+	int hMax = 360;
 	int sMin = 0;
 	int sMax = 255;
 	int vMin = 0;
@@ -124,6 +162,8 @@ int main( int argc, char *argv[] )
 	cv::Mat image;
 
 	char kill = ' '; // Press q to quit the program
+	
+	int thresh = 0;
 
 	while ((kill != 'q') && (kill != 's'))
 	{
@@ -142,7 +182,7 @@ int main( int argc, char *argv[] )
 
 			if (!rgb.data || !rgb_orig.data) // No data
 			{
-                std::cout << "No image data" << std::endl;
+				std::cout << "No image data" << std::endl;
 				return -1;
 			}
 		}
@@ -153,12 +193,16 @@ int main( int argc, char *argv[] )
 		}
 		
 		cv::imshow("BGR Feed", rgb);
-        rgb.copyTo(image);
+		rgb.copyTo(image);
+
+		cv::namedWindow("Source", CV_WINDOW_AUTOSIZE);
+		cv::createTrackbar("Threshold:", "Source", &thresh, 255);
 
 		// Filters are only applied if last parameter is true, otherwise their windows are destroyed
 		gaussianBlurWindows(image, blur_ksize, sigmaX, sigmaY, apply_blur, blur);
 		hsvColorThresholdWindows(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd, apply_color, color);
 		dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
+		drawBoundedRects(image, thresh);
 		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
 		laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
 	
