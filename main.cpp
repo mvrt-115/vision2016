@@ -44,11 +44,11 @@ int main( int argc, char *argv[] )
 
 	// hsvColorThreshold parameters
 	int hMin = 0;
-	int hMax = 255;
+	int hMax = 360;
 	int sMin = 0;
-	int sMax = 255;
+	int sMax = 100;
 	int vMin = 0;
-	int vMax = 255;
+	int vMax = 100;
 	int debugMode = 0; // 0 is none, 1 is debug mode
 	int bitAnd = 1; // 0 is none, 1 is bitAnd between h, s, and v
 
@@ -80,37 +80,30 @@ int main( int argc, char *argv[] )
 	// mergeFinal parameters
 	int weight1 = 100; // decide weighted sums of original rgb feed to filtered rgb feed; values = out of 100
 	int weight2 = 100;
-	int merge_type = 0; // 0 is none, 1 is rgb + rgb_orig, 2 is depth + depth_orig, 3 is rgb + depth 
 
-	// depthDistance parameters
-	int center_x = 320; // point to calculate distance of
-	int center_y = 240;
-	int orig_x = 20; // point to display depth information text
-	int orig_y = 450;
+	std::cout << "\n";
+	std::cout << " =========== FILTER LIST =========== " << "\n";
+	std::cout << "|                                   |" << "\n";
+	std::cout << "| (0) No Filter                     |" << "\n";
+	std::cout << "| (1) Gaussian Blur Filter          |" << "\n";
+	std::cout << "| (2) HSV Color Filter              |" << "\n";
+	std::cout << "| (3) Dilate and Erode Filter       |" << "\n";
+	std::cout << "| (4) Canny Edge Detection Filter   |" << "\n";
+	std::cout << "| (5) Laplacian Sharpen Filter      |" << "\n";
+	std::cout << "| (6) Hough Lines Filter            |" << "\n";
+	std::cout << "| (7) Merge Final Outputs           |" << "\n";
+	std::cout << "|                                   |" << "\n";
+	std::cout << " =================================== " << "\n";
+	std::cout << "\n";
 
-	std::cout << std::endl;
-	std::cout << " =========== FILTER LIST =========== " << std::endl;
-	std::cout << "|                                   |" << std::endl;
-	std::cout << "| (0) No Filter                     |" << std::endl;
-	std::cout << "| (1) Gaussian Blur Filter          |" << std::endl;
-	std::cout << "| (2) HSV Color Filter              |" << std::endl;
-	std::cout << "| (3) Dilate and Erode Filter       |" << std::endl;
-	std::cout << "| (4) Canny Edge Detection Filter   |" << std::endl;
-	std::cout << "| (5) Laplacian Sharpen Filter      |" << std::endl;
-	std::cout << "| (6) Hough Lines Filter            |" << std::endl;
-	std::cout << "| (7) Merge Final Outputs           |" << std::endl;
-	std::cout << "|                                   |" << std::endl;
-	std::cout << " =================================== " << std::endl;
-	std::cout << std::endl;
-
-	std::cout << std::endl;
-	std::cout << " ============== NOTICE ============= " << std::endl;
-	std::cout << "|                                   |" << std::endl;
-	std::cout << "| Press 'q' to quit without saving  |" << std::endl;
-	std::cout << "| Press ' ' to pause                |" << std::endl;
-	std::cout << "|                                   |" << std::endl;
-	std::cout << " =================================== " << std::endl;
-	std::cout << std::endl;
+	std::cout << "\n";
+	std::cout << " ============== NOTICE ============= " << "\n";
+	std::cout << "|                                   |" << "\n";
+	std::cout << "| Press 'q' to quit without saving  |" << "\n";
+	std::cout << "| Press ' ' to pause                |" << "\n";
+	std::cout << "|                                   |" << "\n";
+	std::cout << " =================================== " << "\n";
+	std::cout << "\n";
 
 	cv::VideoCapture camera(0);
 	if( !camera.isOpened() && (argc < 2) )
@@ -124,22 +117,17 @@ int main( int argc, char *argv[] )
 	cv::Mat image;
 
 	char kill = ' '; // Press q to quit the program
-
 	while ((kill != 'q') && (kill != 's'))
 	{
 		if (kill == ' ') // Press space to pause program, then any key to resume
 		{
 			cv::waitKey(0);
 		}
-
-		// Create all the calibration windows
 		selectMode(blur, color, dilate_erode, edge, laplacian, hough, depth_dist, merge);
-		
 		if (argc > 2) // Use images
 		{
 			rgb = cv::imread(argv[1]);
 			rgb_orig = rgb.clone(); // Clone rgb input in order to merge at end
-
 			if (!rgb.data || !rgb_orig.data) // No data
 			{
                 std::cout << "No image data" << std::endl;
@@ -161,30 +149,18 @@ int main( int argc, char *argv[] )
 		dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
 		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
 		laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
-	
 #if 0
-		// List sizes of images
-		cv::Size rgbSize = rgb.size();
-		std::cout << "RGB:   [" << rgbSize.height << " x " << rgbSize.width <<  "]" << std::endl;
-		cv::Size depthSize = depth.size();
-		std::cout << "Depth: [" << depthSize.height << " x " << depthSize.width << "]" << std::endl;
+		// List sizes of image
 		cv::Size imageSize = image.size();
-		std::cout << "Image: [" << imageSize.height << " x " << imageSize.width << "]" << std::endl;
+		std::cout << "Image: [" << imageSize.height << " x " << imageSize.width << "]" << "\n";
 #endif
 		houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
-	
 #if 0
-		// List sizes of images
-		rgbSize = rgb.size();
-		std::cout << "RGB:   [" << rgbSize.height << " x " << rgbSize.width <<  "]" << std::endl;
-		depthSize = depth.size();
-		std::cout << "Depth: [" << depthSize.height << " x " << depthSize.width << "]" << std::endl;
+		// List sizes of image
 		imageSize = image.size();
-		std::cout << "Image: [" << imageSize.height << " x " << imageSize.width << "]" << std::endl;
+		std::cout << "Image: [" << imageSize.height << " x " << imageSize.width << "]" << "\n";
 #endif
-
-		depthDistanceWindows(image, center_x, center_y, orig_x, orig_y, apply_depth_dist, depth_dist);
-
+        mergeFinalWindows(rgb_orig, image, weight1, weight2, apply_merge, merge);
 		kill = cv::waitKey(5);
 	}
 	return 0;	
