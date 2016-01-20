@@ -1,6 +1,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <iostream>
+#include <stdio.h>
 #include <string>
 
 #include "include/logging/enumCvType.hpp"
@@ -29,25 +30,45 @@ void drawBoundedRects(cv::Mat& src, int thresh)
  	/// Find contours
  	cv::findContours(threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
  
- 	/// Approximate contours to polygons + get bounding rects and circles
- 	std::vector<std::vector<cv::Point> > contours_poly( contours.size() );
- 	std::vector<cv::Rect> boundRect(contours.size());
+	/// Get the moments
+  	cv::vector<cv::Moments> mu(contours.size() );
+  	for( int i = 0; i < contours.size(); i++ )
+     		{ mu[i] = moments( contours[i], false ); }
 
+	///  Get the mass centers:
+  	cv::vector<cv::Point2f> mc( contours.size() );
+  	for( int i = 0; i < contours.size(); i++ )
+     		{ mc[i] = cv::Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); }
+
+ 	/// Approximate contours to rotated rectangles and ellipses
+ 	std::vector<cv::RotatedRect> minRect( contours.size());
  	for(int i = 0; i < contours.size(); i++)
  	{
- 		cv::approxPolyDP(cv::Mat(contours[i]), contours_poly[i], 3, true);
- 		boundRect[i] = cv::boundingRect(cv::Mat(contours_poly[i]));
+		minRect[i] = cv::minAreaRect(cv::Mat(contours[i]));
  	}
  
- 	/// Draw polygonal contour + bonding rects + circles
+ 	// Draw polygonal contour + bounding rects
  	cv::Mat drawing = cv::Mat::zeros(threshold_output.size(), CV_8UC3);
  	for(int i = 0; i < contours.size(); i++)
  	{
  		cv::Scalar color = cv::Scalar(0, 0, 255);
- 		cv::drawContours(drawing, contours_poly, i, color, 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
- 		cv::rectangle(drawing, boundRect[i].tl(), boundRect[i].br(), color, 2, 8, 0);
+ 		cv::drawContours(drawing, contours, i, color, 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
+ 		cv::Point2f rect_points[4]; minRect[i].points(rect_points);
+		for(int j = 0; j < 4; j++)
+		{
+			cv::line(drawing, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
+		}
  	}
- 
+
+	// Calculate the area with the moments 00 and compare with the result of the OpenCV function
+	printf("\t Info: Area and Contour Length \n");
+  	for( int i = 0; i< contours.size(); i++ )
+     	{
+       		printf(" * Contour[%2d] - Area (M_00) = %4.2f - Area OpenCV: %4.2f - Length: %4.2f\n", i, mu[i].m00, contourArea(contours[i]), arcLength( contours[i], true ) );
+		cv::Scalar color = cv::Scalar(0, 255, 0);
+ 		cv::drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
+	}
+
  	/// Show in a window
  	cv::namedWindow("Contours", CV_WINDOW_AUTOSIZE);
  	cv::imshow("Contours", drawing);
