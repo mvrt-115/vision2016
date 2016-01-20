@@ -25,22 +25,22 @@ void drawBoundedRects(cv::Mat& src, int thresh)
 	// Convert src to gray format
 	cv::cvtColor(src, threshold_output, CV_BGR2GRAY);
 
- 	/// Detect edges using Threshold
+ 	// Detect edges using Threshold
  	cv::threshold(threshold_output, threshold_output, thresh, 255, cv::THRESH_BINARY);
- 	/// Find contours
+ 	// Find contours
  	cv::findContours(threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
  
-	/// Get the moments
-  	cv::vector<cv::Moments> mu(contours.size() );
+	// Get the moments
+  	std::vector<cv::Moments> mu(contours.size() );
   	for( int i = 0; i < contours.size(); i++ )
      		{ mu[i] = moments( contours[i], false ); }
 
-	///  Get the mass centers:
+	//  Get the mass centers:
   	cv::vector<cv::Point2f> mc( contours.size() );
   	for( int i = 0; i < contours.size(); i++ )
      		{ mc[i] = cv::Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); }
 
- 	/// Approximate contours to rotated rectangles and ellipses
+ 	// Approximate contours to rotated rectangles and ellipses
  	std::vector<cv::RotatedRect> minRect( contours.size());
  	for(int i = 0; i < contours.size(); i++)
  	{
@@ -69,7 +69,7 @@ void drawBoundedRects(cv::Mat& src, int thresh)
  		cv::drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
 	}
 
- 	/// Show in a window
+ 	// Show in a window
  	cv::namedWindow("Contours", CV_WINDOW_AUTOSIZE);
  	cv::imshow("Contours", drawing);
 }
@@ -87,14 +87,14 @@ int main( int argc, char *argv[])
 	int merge = 0; 
 
 	// Parameters for applying filters even if windows are closed
-	int apply_blur = 0; 
-	int apply_color = 0;
+	int apply_blur = 1; 
+	int apply_color = 1;
     	int apply_dilate_erode = 0;
-	int apply_edge = 0;
+	int apply_edge = 1;
 	int apply_laplacian = 0;
 	int apply_hough = 0; 
 	int apply_depth_dist = 0;
-	int apply_merge = 0; 
+	int apply_merge = 1; 
 
 	// gaussianBlur parameters
 	int blur_ksize = 7;
@@ -102,11 +102,11 @@ int main( int argc, char *argv[])
 	int sigmaY = 10;
 
 	// hsvColorThreshold parameters
-	int hMin = 0;
-	int hMax = 360;
-	int sMin = 0;
-	int sMax = 100;
-	int vMin = 0;
+	int hMin = 130;
+	int hMax = 190;
+	int sMin = 10;
+	int sMax = 30;
+	int vMin = 85;
 	int vMax = 100;
 	int debugMode = 0; // 0 is none, 1 is debug mode
 	int bitAnd = 1; // 0 is none, 1 is bitAnd between h, s, and v
@@ -176,7 +176,7 @@ int main( int argc, char *argv[])
 	cv::Mat image;
 
 	char kill = ' '; // Press q to quit the program
-	int thresh = 0;
+	int thresh = 120;
 
 	while ((kill != 'q') && (kill != 's'))
 	{
@@ -225,7 +225,7 @@ int main( int argc, char *argv[])
 		imageSize = image.size();
 		std::cout << "Image: [" << imageSize.height << " x " << imageSize.width << "]" << "\n";
 #endif
-        mergeFinalWindows(rgb_orig, image, weight1, weight2, apply_merge, merge);
+		mergeFinalWindows(rgb_orig, image, weight1, weight2, apply_merge, merge);
 		kill = cv::waitKey(5);
 	}
 	return 0;	
