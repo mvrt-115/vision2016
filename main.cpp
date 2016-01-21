@@ -36,7 +36,7 @@ void drawBoundedRects(cv::Mat& src, int thresh)
      		{ mu[i] = moments( contours[i], false ); }
 
 	//  Get the mass centers:
-  	cv::vector<cv::Point2f> mc( contours.size() );
+  	std::vector<cv::Point2f> mc( contours.size() );
   	for( int i = 0; i < contours.size(); i++ )
      		{ mc[i] = cv::Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); }
 
