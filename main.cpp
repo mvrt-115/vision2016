@@ -3,6 +3,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <string>
+#include <cmath>
 
 #include "include/logging/enumCvType.hpp"
 
@@ -15,6 +16,9 @@
 #include "include/filters/houghLinesWindows.hpp"
 #include "include/filters/mergeFinalWindows.hpp"
 #include "include/filters/depthDistanceWindows.hpp"
+
+void calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect);
+double distance(cv::Point one, cv::Point two);
 
 void drawBoundedRects(cv::Mat& src, int thresh)
 {
@@ -50,28 +54,64 @@ void drawBoundedRects(cv::Mat& src, int thresh)
  	// Draw polygonal contour + bounding rects
  	cv::Mat drawing = cv::Mat::zeros(threshold_output.size(), CV_8UC3);
  	for(int i = 0; i < contours.size(); i++)
- 	{
- 		cv::Scalar color = cv::Scalar(0, 0, 255);
- 		cv::drawContours(drawing, contours, i, color, 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
- 		cv::Point2f rect_points[4]; minRect[i].points(rect_points);
+	{
+ 		//cv::Scalar color = cv::Scalar(0, 255, 255);
+ 		//cv::drawContours(drawing, contours, i, color, 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
+ 		cv::Point2f rect_points[4]; 
+		minRect[i].points(rect_points);
 		for(int j = 0; j < 4; j++)
 		{
-			cv::line(drawing, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
+			//cv::line(drawing, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
 		}
  	}
+	// Bounded rectangle is the one at the 0th index
+	if (minRect.size() > 0)
+		calculateDistance(drawing, minRect[0]);
 
 	// Calculate the area with the moments 00 and compare with the result of the OpenCV function
-	printf("\t Info: Area and Contour Length \n");
-  	for( int i = 0; i< contours.size(); i++ )
+	// printf("\t Info: Area and Contour Length \n");
+  	for( int i = 0; i < contours.size(); i++ )
      	{
-       		printf(" * Contour[%2d] - Area (M_00) = %4.2f - Area OpenCV: %4.2f - Length: %4.2f\n", i, mu[i].m00, contourArea(contours[i]), arcLength( contours[i], true ) );
-		cv::Scalar color = cv::Scalar(0, 255, 0);
- 		cv::drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
+       		// printf(" * Contour[%2d] - Area (M_00) = %4.2f - Area OpenCV: %4.2f - Length: %4.2f\n", i, mu[i].m00, contourArea(contours[i]), arcLength( contours[i], true ) );
+       		// printf("Contour[%2d] - Length: %4.2f\n", i, arcLength( contours[i], true ) );
+		//cv::Scalar color = cv::Scalar(0, 255, 0);
+ 		//cv::drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
 	}
 
  	// Show in a window
  	cv::namedWindow("Contours", CV_WINDOW_AUTOSIZE);
  	cv::imshow("Contours", drawing);
+}
+
+double distance(cv::Point one, cv::Point two)
+{
+    return std::sqrt(std::pow(one.x - two.x, 2) + std::pow(one.y - two.y, 2));
+}
+
+void calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect)
+{
+	double focalLen = 673.20;
+	// 20 inches real width
+	double wReal = 20;
+	double wPixel = 0;
+	double d = 204;
+	
+	cv::Point2f vert[4];
+	boundedRect.points(vert);
+	cv::line(image, vert[0], vert[3], cv::Scalar (255, 0, 0));
+	wPixel = distance(vert[0], vert[3]);
+	// focalLen = (wPixel * d) / wReal;
+	d = (wReal * focalLen) / wPixel;
+
+	char str[50];
+	sprintf(str, "Line Length  = %4.2f", wPixel);
+    	cv::putText(image, str, cv::Point(10, 420), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+
+	sprintf(str, "Focal Length = %4.2f", focalLen);
+    	cv::putText(image, str, cv::Point(10, 440), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+
+	sprintf(str, "Distance     = %4.2f", d);
+    	cv::putText(image, str, cv::Point(10, 460), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 }
 
 int main( int argc, char *argv[])
@@ -164,8 +204,8 @@ int main( int argc, char *argv[])
 	std::cout << " =================================== " << "\n";
 	std::cout << "\n";
 
-	cv::VideoCapture camera(0);
-	if( !camera.isOpened() && (argc < 2) )
+	cv::VideoCapture camera(1);
+	if( !camera.isOpened() )
 	{
 		std::cout << "Error - Unable to open Camera at Port 0" << std::endl;
 		return -1;
