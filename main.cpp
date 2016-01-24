@@ -90,51 +90,58 @@ double distance(cv::Point one, cv::Point two)
 
 void calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect)
 {
-	double focalLen = 673.20;
+	double focalLen = 675.0;
 	// 20 inches real width
 	double wReal = 20;
 	double wPixel = 0;
-	double d = 204;
-	
+	double d = 180;
+	double theta = 0;
+    const double TOWER_HEIGHT = 7.1;
+    const double PI = 3.14159265;
+
 	cv::Point2f vert[4];
 	boundedRect.points(vert);
 	cv::line(image, vert[0], vert[3], cv::Scalar (255, 0, 0));
 	wPixel = distance(vert[0], vert[3]);
-	// focalLen = (wPixel * d) / wReal;
+    // focalLen = (wPixel * d) / wReal;
 	d = (wReal * focalLen) / wPixel;
+    theta = asin(TOWER_HEIGHT / (d / 12)) * 180 / PI;
 
 	char str[50];
 	sprintf(str, "Line Length  = %4.2f", wPixel);
-    	cv::putText(image, str, cv::Point(10, 420), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+    cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
 	sprintf(str, "Focal Length = %4.2f", focalLen);
-    	cv::putText(image, str, cv::Point(10, 440), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+    cv::putText(image, str, cv::Point(10, 420), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
 	sprintf(str, "Distance     = %4.2f", d);
-    	cv::putText(image, str, cv::Point(10, 460), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+    cv::putText(image, str, cv::Point(10, 440), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+
+	sprintf(str, "Vert Angle   = %4.2f", theta);
+    cv::putText(image, str, cv::Point(10, 460), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 }
 
 int main( int argc, char *argv[])
 {
 	// Parameters for selecting which filters to apply
-	int blur = 0; 
+	int blur = 0;
 	int color = 0;
-    	int dilate_erode = 0;
+    int dilate_erode = 0;
 	int edge = 0;
 	int laplacian = 0;
-	int hough = 0; 
+	int hough = 0;
 	int depth_dist = 0;
-	int merge = 0; 
+	int merge = 0;
 
 	// Parameters for applying filters even if windows are closed
-	int apply_blur = 1; 
+	int apply_blur = 1;
 	int apply_color = 1;
-    	int apply_dilate_erode = 0;
+    int apply_dilate_erode = 0;
 	int apply_edge = 1;
 	int apply_laplacian = 0;
-	int apply_hough = 0; 
+	int apply_hough = 0;
 	int apply_depth_dist = 0;
-	int apply_merge = 1; 
+	int apply_merge = 1;
 
 	// gaussianBlur parameters
 	int blur_ksize = 7;
@@ -142,14 +149,15 @@ int main( int argc, char *argv[])
 	int sigmaY = 10;
 
 	// hsvColorThreshold parameters
-	int hMin = 130;
-	int hMax = 190;
-	int sMin = 10;
-	int sMax = 30;
-	int vMin = 85;
+	int hMin = 120;
+	int hMax = 200;
+	int sMin = 0;
+	int sMax = 40;
+	int vMin = 80;
 	int vMax = 100;
-	int debugMode = 0; // 0 is none, 1 is debug mode
-	int bitAnd = 1; // 0 is none, 1 is bitAnd between h, s, and v
+	int debugMode = 0;
+    // 0 is none, 1 is bitAnd between h, s, and v
+	int bitAnd = 1;
 
 	// dilateErode parameters
 	int holes = 0;
@@ -165,8 +173,10 @@ int main( int argc, char *argv[])
 	
 	// laplacianSharpen parameters
 	int laplacian_ksize = 3;
-	int scale = 1; // optional scale value added to image
-	int delta = 0; // optional delta value added to image
+    // optional scale value added to image
+	int scale = 1;
+    // optional delta value added to image
+	int delta = 0;
 	int ddepth = CV_16S;
 	
 	// houghLines parameters
@@ -177,8 +187,11 @@ int main( int argc, char *argv[])
 	int maxGap = 10;
 
 	// mergeFinal parameters
-	int weight1 = 100; // decide weighted sums of original rgb feed to filtered rgb feed; values = out of 100
+	int weight1 = 100;
 	int weight2 = 100;
+
+    // contour parameters
+	int contours = 120;
 
 	std::cout << "\n";
 	std::cout << " =========== FILTER LIST =========== " << "\n";
@@ -204,32 +217,50 @@ int main( int argc, char *argv[])
 	std::cout << " =================================== " << "\n";
 	std::cout << "\n";
 
-	cv::VideoCapture camera(1);
-	if( !camera.isOpened() )
-	{
-		std::cout << "Error - Unable to open Camera at Port 0" << std::endl;
-		return -1;
-	}
+    int port = 0;
+    cv::VideoCapture camera;
+    do
+    {
+        std::cout << "Enter the port number of the camera (-1 to quit): ";
+        std::cin >> port;
+
+        // Reprompt if user enters invalid input
+        if (port <= 10 && port >= 0)
+        {
+            camera = cv::VideoCapture (port);
+            if(!camera.isOpened())
+            {
+                std::cout << "\nUnable to open camera at Port " << port << "\n\n";
+            }
+        }
+    }
+    while (port != -1);
+
+    if (port == -1)
+        return -1;
 
 	// Matrices for holding image data
 	cv::Mat rgb, rgb_orig;
 	cv::Mat image;
 
-	char kill = ' '; // Press q to quit the program
-	int thresh = 120;
-
+    // Press q to quit the program
+	char kill = ' ';
 	while ((kill != 'q') && (kill != 's'))
 	{
-		if (kill == ' ') // Press space to pause program, then any key to resume
+        // Press space to pause program, then any key to resume
+		if (kill == ' ')
 		{
 			cv::waitKey(0);
 		}
 		selectMode(blur, color, dilate_erode, edge, laplacian, hough, depth_dist, merge);
-		if (argc > 2) // Use images
+
+        // Use images
+		if (argc > 2)
 		{
 			rgb = cv::imread(argv[1]);
-			rgb_orig = rgb.clone(); // Clone rgb input in order to merge at end
-			if (!rgb.data || !rgb_orig.data) // No data
+
+            // No data
+			if (!rgb.data)
 			{
 				std::cout << "No image data" << std::endl;
 				return -1;
@@ -238,34 +269,21 @@ int main( int argc, char *argv[])
 		else 
 		{
 			camera >> rgb;
-			rgb_orig = rgb.clone();
 		}
-		
 		cv::imshow("BGR Feed", rgb);
+		cv::namedWindow("Contours", CV_WINDOW_AUTOSIZE);
+		cv::createTrackbar("Contours Threshold:", "Contours", &contours, 255);
 		rgb.copyTo(image);
-
-		cv::namedWindow("Source", CV_WINDOW_AUTOSIZE);
-		cv::createTrackbar("Threshold:", "Source", &thresh, 255);
 
 		// Filters are only applied if last parameter is true, otherwise their windows are destroyed
 		gaussianBlurWindows(image, blur_ksize, sigmaX, sigmaY, apply_blur, blur);
 		hsvColorThresholdWindows(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd, apply_color, color);
 		dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
-		drawBoundedRects(image, thresh);
+		drawBoundedRects(image, contours);
 		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
 		laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
-#if 0
-		// List sizes of image
-		cv::Size imageSize = image.size();
-		std::cout << "Image: [" << imageSize.height << " x " << imageSize.width << "]" << "\n";
-#endif
 		houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
-#if 0
-		// List sizes of image
-		imageSize = image.size();
-		std::cout << "Image: [" << imageSize.height << " x " << imageSize.width << "]" << "\n";
-#endif
-		mergeFinalWindows(rgb_orig, image, weight1, weight2, apply_merge, merge);
+		mergeFinalWindows(rgb, image, weight1, weight2, apply_merge, merge);
 		kill = cv::waitKey(5);
 	}
 	return 0;	
