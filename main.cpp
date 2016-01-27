@@ -17,8 +17,10 @@
 #include "include/filters/mergeFinalWindows.hpp"
 #include "include/filters/depthDistanceWindows.hpp"
 
-void calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect);
+double calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect);
 double distance(cv::Point one, cv::Point two);
+std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img);
+void calcHorizAngle(cv::Mat& image, double dStraight, std::vector<cv::Point> c);
 
 void drawBoundedRects(cv::Mat& src, int thresh)
 {
@@ -64,18 +66,34 @@ void drawBoundedRects(cv::Mat& src, int thresh)
 			//cv::line(drawing, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
 		}
  	}
+
+    double d = 0;
+    std::vector<cv::Point> c;
 	// Bounded rectangle is the one at the 0th index
 	if (minRect.size() > 0)
-		calculateDistance(drawing, minRect[0]);
+		d = calculateDistance(drawing, minRect[0]);
+    if (contours.size() > 0)
+    {
+        c = corners(contours[0], drawing);
+        calcHorizAngle(drawing, d, c);
+    }
+
+    for (int i = 0; i < c.size(); i++)
+    {
+        cv::circle(drawing, c[i], 5, cv::Scalar(0, 255, 0));
+    }
 
 	// Calculate the area with the moments 00 and compare with the result of the OpenCV function
 	// printf("\t Info: Area and Contour Length \n");
-  	for( int i = 0; i < contours.size(); i++ )
-     	{
-       		// printf(" * Contour[%2d] - Area (M_00) = %4.2f - Area OpenCV: %4.2f - Length: %4.2f\n", i, mu[i].m00, contourArea(contours[i]), arcLength( contours[i], true ) );
-       		// printf("Contour[%2d] - Length: %4.2f\n", i, arcLength( contours[i], true ) );
-		//cv::Scalar color = cv::Scalar(0, 255, 0);
- 		//cv::drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
+  	for (int i = 0; i < contours.size(); i++)
+    {
+        // printf(" * Contour[%2d] - Area (M_00) = %4.2f - Area OpenCV: %4.2f - Length: %4.2f\n", i, mu[i].m00, contourArea(contours[i]), arcLength( contours[i], true ) );
+        // printf("Contour[%2d] - Length: %4.2f\n", i, arcLength( contours[i], true ) );
+		cv::Scalar color = cv::Scalar(0, 255, 0);
+        if (i == 0)
+        {
+            cv::drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
+        }
 	}
 
  	// Show in a window
@@ -88,7 +106,87 @@ double distance(cv::Point one, cv::Point two)
     return std::sqrt(std::pow(one.x - two.x, 2) + std::pow(one.y - two.y, 2));
 }
 
-void calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect)
+// Returns the two dimensional distance between the components of two points
+double distance2D(double comp1, double comp2)
+{
+    return std::abs(comp2 - comp1);
+}
+
+std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img)
+{
+    cv::Point tLeft = cv::Point (0, 0);
+    cv::Point tRight = cv::Point (0, img.cols);
+    cv::Point bLeft = cv::Point (img.rows, 0);
+    cv::Point bRight = cv::Point (img.rows, img.cols);
+
+    double tLeftD = 0;
+    double tRightD = 0;
+    double bLeftD = 0;
+    double bRightD = 0;
+
+    std::vector<cv::Point> c;
+    c.push_back(bLeft);
+    c.push_back(tLeft);
+    c.push_back(tRight);
+    c.push_back(bRight);
+
+    for (int i = 0; i < pts.size(); i++)
+    {
+        if (distance(pts[i], bLeft) > bLeftD)
+        {
+            bLeftD = distance(pts[i], bLeft);
+            c.at(0) = pts[i];
+        }
+
+        if (distance(pts[i], tLeft) > tLeftD)
+        {
+            tLeftD = distance(pts[i], tLeft);
+            c.at(1) = pts[i];
+        }
+
+        if (distance(pts[i], tRight) > tRightD)
+        {
+            tRightD = distance(pts[i], tRight);
+            c.at(2) = pts[i];
+        }
+
+        if (distance(pts[i], bRight) > bRightD)
+        {
+            bRightD = distance(pts[i], bRight);
+            c.at(3) = pts[i];
+        }
+    }
+    return c;
+}
+
+void calcHorizAngle(cv::Mat& image, double dStraight, std::vector<cv::Point> c)
+{
+    dStraight = 180;
+
+    const double PI = 3.14159265;
+
+    // Calibration phase
+    double hStraight = distance2D(c[0].y, c[1].y);
+    // Note: dStraight may need to be calibrated too
+
+    double center = image.cols / 2;
+    double hLeft = distance2D(c[0].y, c[1].y);
+    double hRight = distance2D(c[2].y, c[3].y);
+    double wPixel = distance2D(c[0].x, c[3].x);
+    double hAvg = (hLeft + hRight) / 2;
+    double yTrans = c[0].x - center;
+    double alpha = std::atan(yTrans / dStraight) * 180 / PI;
+    double beta = std::atan((yTrans * (hStraight - hRight)) / (dStraight * (hStraight + hAvg))) * 180 / PI;
+
+	char str[50];
+	sprintf(str, "Alpha   = %4.2f", alpha);
+    cv::putText(image, str, cv::Point(10, 380), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+
+	sprintf(str, "Beta    = %4.2f", beta);
+    cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+}
+
+double calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect)
 {
 	double focalLen = 675.0;
 	// 20 inches real width
@@ -108,8 +206,8 @@ void calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect)
     theta = asin(TOWER_HEIGHT / (d / 12)) * 180 / PI;
 
 	char str[50];
-	sprintf(str, "Line Length  = %4.2f", wPixel);
-    cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+	//sprintf(str, "Line Length  = %4.2f", wPixel);
+    //cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
 	sprintf(str, "Focal Length = %4.2f", focalLen);
     cv::putText(image, str, cv::Point(10, 420), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
@@ -117,8 +215,10 @@ void calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect)
 	sprintf(str, "Distance     = %4.2f", d);
     cv::putText(image, str, cv::Point(10, 440), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
-	sprintf(str, "Vert Angle   = %4.2f", theta);
-    cv::putText(image, str, cv::Point(10, 460), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+	//sprintf(str, "Vert Angle   = %4.2f", theta);
+    //cv::putText(image, str, cv::Point(10, 460), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+
+    return d;
 }
 
 int main( int argc, char *argv[])
@@ -234,7 +334,7 @@ int main( int argc, char *argv[])
             }
         }
     }
-    while (port != -1);
+    while (port != -1 && !camera.isOpened());
 
     if (port == -1)
         return -1;
