@@ -22,6 +22,24 @@ double distance(cv::Point one, cv::Point two);
 std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img);
 void calcHorizAngle(cv::Mat& image, double xDist, std::vector<cv::Point>& c, std::vector<cv::Point2f>& mc);
 
+void rectThreshold(std::vector<std::vector<cv::Point> >& contour, cv::RotatedRect& rect)
+{
+    const double scale = 0.3589;
+    cv::Point2f vertices[4];
+    rect.points(vertices);
+    double rotatedArea = distance(vertices[0],vertices[1])*distance(vertices[1], vertices[2]);
+    for (int i = 0; i < contour.size(); i++)
+    {
+        double contourArea = cv::contourArea(contour[i]);   
+	std::cout << "contourArea: " << contourArea << ", rotatedArea: " << rotatedArea << ", ratio: " << contourArea/rotatedArea << "\n";
+	if (std::abs(contourArea/rotatedArea - scale) > 1)
+        {
+            //contour.erase(contour.begin() + i);
+            //i--; //because contour just got smaller
+        }
+    }
+}
+
 void drawBoundedRects(cv::Mat& src, int thresh)
 {
  	cv::Mat threshold_output;
@@ -49,22 +67,23 @@ void drawBoundedRects(cv::Mat& src, int thresh)
  	// Approximate contours to rotated rectangles and ellipses
  	std::vector<cv::RotatedRect> minRect( contours.size());
  	for(int i = 0; i < contours.size(); i++)
- 	{
 		minRect[i] = cv::minAreaRect(cv::Mat(contours[i]));
- 	}
- 
+	rectThreshold(contours, minRect[0]); 
+
  	// Draw polygonal contour + bounding rects
  	cv::Mat drawing = cv::Mat::zeros(threshold_output.size(), CV_8UC3);
  	for(int i = 0; i < contours.size(); i++)
 	{
  		cv::Scalar color = cv::Scalar(0, 255, 255);
+<<<<<<< Updated upstream
  		//cv::drawContours(drawing, contours, i, color, 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
+=======
+ 		cv::drawContours(drawing, contours, i, color, 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
+>>>>>>> Stashed changes
  		cv::Point2f rect_points[4]; 
 		minRect[i].points(rect_points);
 		for(int j = 0; j < 4; j++)
-		{
-			//cv::line(drawing, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
-		}
+			cv::line(drawing, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
  	}
 
     for (int i = 0; i < mc.size(); i++)
@@ -111,7 +130,7 @@ void drawBoundedRects(cv::Mat& src, int thresh)
 
 double distance(cv::Point one, cv::Point two)
 {
-    return std::sqrt(std::pow(one.x - two.x, 2) + std::pow(one.y - two.y, 2));
+	return std::sqrt(std::pow(one.x - two.x, 2) + std::pow(one.y - two.y, 2));
 }
 
 // Returns the two dimensional distance between the components of two points
@@ -205,37 +224,49 @@ void calcHorizAngle(cv::Mat& image, double xDist, std::vector<cv::Point>& c, std
 
 double calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect)
 {
-	double focalLen = 675.0;
+	double focalLen = 702.0;
 	// 20 inches real width
 	double wReal = 20;
 	double wPixel = 0;
 	double d = 180;
 	double theta = 0;
-    const double TOWER_HEIGHT = 7.1;
-    const double PI = 3.14159265;
+	double camera_height = 0.933;
+    	const double TOWER_HEIGHT = 7.08333;
+    	const double PI = 3.14159265;
+
+	double height = TOWER_HEIGHT - camera_height;
 
 	cv::Point2f vert[4];
 	boundedRect.points(vert);
 	cv::line(image, vert[0], vert[3], cv::Scalar (255, 0, 0));
 	wPixel = distance(vert[0], vert[3]);
-    // focalLen = (wPixel * d) / wReal;
+     //focalLen = (wPixel * d) / wReal;
 	d = (wReal * focalLen) / wPixel;
-    theta = asin(TOWER_HEIGHT / (d / 12)) * 180 / PI;
+    	theta = asin(height / (d / 12)) * 180 / PI;
 
 	char str[50];
+<<<<<<< Updated upstream
 	//sprintf(str, "Line Length  = %4.2f", wPixel);
     //cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+=======
+	sprintf(str, "Line Length  = %4.2f", wPixel);
+    	cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+>>>>>>> Stashed changes
 
 	sprintf(str, "Focal Length = %4.2f", focalLen);
-    cv::putText(image, str, cv::Point(10, 420), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+    	cv::putText(image, str, cv::Point(10, 420), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
 	sprintf(str, "Distance     = %4.2f", d);
-    cv::putText(image, str, cv::Point(10, 440), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+    	cv::putText(image, str, cv::Point(10, 440), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
 	sprintf(str, "Vert Angle   = %4.2f", theta);
+<<<<<<< Updated upstream
     cv::putText(image, str, cv::Point(10, 460), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
     return d;
+=======
+    	cv::putText(image, str, cv::Point(10, 460), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+>>>>>>> Stashed changes
 }
 
 int main( int argc, char *argv[])
@@ -243,7 +274,7 @@ int main( int argc, char *argv[])
 	// Parameters for selecting which filters to apply
 	int blur = 0;
 	int color = 0;
-    int dilate_erode = 0;
+    	int dilate_erode = 0;
 	int edge = 0;
 	int laplacian = 0;
 	int hough = 0;
@@ -253,7 +284,7 @@ int main( int argc, char *argv[])
 	// Parameters for applying filters even if windows are closed
 	int apply_blur = 1;
 	int apply_color = 1;
-    int apply_dilate_erode = 0;
+    	int apply_dilate_erode = 0;
 	int apply_edge = 1;
 	int apply_laplacian = 0;
 	int apply_hough = 0;
@@ -266,14 +297,14 @@ int main( int argc, char *argv[])
 	int sigmaY = 10;
 
 	// hsvColorThreshold parameters
-	int hMin = 120;
-	int hMax = 200;
+	int hMin = 100;
+	int hMax = 180;
 	int sMin = 0;
-	int sMax = 40;
+	int sMax = 30;
 	int vMin = 80;
 	int vMax = 100;
 	int debugMode = 0;
-    // 0 is none, 1 is bitAnd between h, s, and v
+    	// 0 is none, 1 is bitAnd between h, s, and v
 	int bitAnd = 1;
 
 	// dilateErode parameters
@@ -290,9 +321,9 @@ int main( int argc, char *argv[])
 	
 	// laplacianSharpen parameters
 	int laplacian_ksize = 3;
-    // optional scale value added to image
+    	// optional scale value added to image
 	int scale = 1;
-    // optional delta value added to image
+    	// optional delta value added to image
 	int delta = 0;
 	int ddepth = CV_16S;
 	
@@ -307,7 +338,7 @@ int main( int argc, char *argv[])
 	int weight1 = 100;
 	int weight2 = 100;
 
-    // contour parameters
+    	// contour parameters
 	int contours = 120;
 
 	std::cout << "\n";
@@ -334,6 +365,7 @@ int main( int argc, char *argv[])
 	std::cout << " =================================== " << "\n";
 	std::cout << "\n";
 
+<<<<<<< Updated upstream
     int port = 0;
     cv::VideoCapture camera;
     do
@@ -355,53 +387,80 @@ int main( int argc, char *argv[])
 
     if (port == -1)
         return -1;
+=======
+    	int port = 0;
+    	cv::VideoCapture camera;
+    	// do
+    	// {
+    	   // std::cout << "Enter the port number of the camera (-1 to quit): ";
+    	   // std::cin >> port;
+	
+	    // Reprompt if user enters invalid input
+	    // if (port <= 10 && port >= 0)
+	    // {
+	       // camera = cv::VideoCapture (port);
+	       // if(!camera.isOpened())
+               // {
+               //     std::cout << "\nUnable to open camera at Port " << port << "\n\n";
+               // }
+	    // }
+        // }
+    	// while (port != -1);
+	// if (port == -1)
+           // return -1;
+
+	camera = cv::VideoCapture(1);
+	if (!camera.isOpened())
+	{
+		std::cout << "Can't open camera" << "\n";
+	}
+>>>>>>> Stashed changes
 
 	// Matrices for holding image data
 	cv::Mat rgb, rgb_orig;
 	cv::Mat image;
 
-    // Press q to quit the program
+    	// Press q to quit the program
 	char kill = ' ';
 	while ((kill != 'q') && (kill != 's'))
 	{
         // Press space to pause program, then any key to resume
-		if (kill == ' ')
-		{
-			cv::waitKey(0);
-		}
-		selectMode(blur, color, dilate_erode, edge, laplacian, hough, depth_dist, merge);
+	    if (kill == ' ')
+	    {
+		cv::waitKey(0);
+	    }
+	    selectMode(blur, color, dilate_erode, edge, laplacian, hough, depth_dist, merge);
 
-        // Use images
-		if (argc > 2)
+            // Use images
+	    if (argc > 2)
+	    {
+		rgb = cv::imread(argv[1]);
+           	// No data
+		if (!rgb.data)
 		{
-			rgb = cv::imread(argv[1]);
-
-            // No data
-			if (!rgb.data)
-			{
-				std::cout << "No image data" << std::endl;
-				return -1;
-			}
+		   std::cout << "No image data" << std::endl;
+		   return -1;
 		}
-		else 
-		{
-			camera >> rgb;
-		}
-		cv::imshow("BGR Feed", rgb);
-		cv::namedWindow("Contours", CV_WINDOW_AUTOSIZE);
-		cv::createTrackbar("Contours Threshold:", "Contours", &contours, 255);
-		rgb.copyTo(image);
+	    }
+	    else 
+	    {
+		camera >> rgb;
+	    }
+	    cv::imshow("BGR Feed", rgb);
+	    cv::namedWindow("Contours", CV_WINDOW_AUTOSIZE);
+	    cv::createTrackbar("Contours Threshold:", "Contours", &contours, 255);
+	    rgb.copyTo(image);
 
-		// Filters are only applied if last parameter is true, otherwise their windows are destroyed
-		gaussianBlurWindows(image, blur_ksize, sigmaX, sigmaY, apply_blur, blur);
-		hsvColorThresholdWindows(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd, apply_color, color);
-		dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
-		drawBoundedRects(image, contours);
-		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
-		laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
-		houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
-		mergeFinalWindows(rgb, image, weight1, weight2, apply_merge, merge);
-		kill = cv::waitKey(5);
+	    // Filters are only applied if last parameter is true, otherwise their windows are destroyed
+	    gaussianBlurWindows(image, blur_ksize, sigmaX, sigmaY, apply_blur, blur);
+	    hsvColorThresholdWindows(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd, apply_color, color);
+	    dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
+	    drawBoundedRects(image, contours);
+	    cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
+	    laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
+	    houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
+	    mergeFinalWindows(rgb, image, weight1, weight2, apply_merge, merge);
+	    kill = cv::waitKey(5);
 	}
 	return 0;	
 }
