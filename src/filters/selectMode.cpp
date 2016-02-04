@@ -1,6 +1,6 @@
 #include <filters/selectMode.hpp>
 
-void selectMode(int &blur, int &color, int &dilate_erode, int &edge, int &laplacian, int &hough, int &depth_dist, int &merge)
+void selectMode(int &blur, int &color, int &dilate_erode, int &edge, int &laplacian, int &hough, int &depth_dist, int &merge, int& boundedRects)
 {
 	// Editor to select which filter(s) to apply
 	cv::namedWindow("Filter Options", cv::WINDOW_AUTOSIZE);
@@ -13,4 +13,5 @@ void selectMode(int &blur, int &color, int &dilate_erode, int &edge, int &laplac
 	cv::createTrackbar("Hough Line Filter", "Filter Options", &hough, 1);
 	cv::createTrackbar("Merge After Filtering", "Filter Options", &merge, 1);
 	cv::createTrackbar("Depth Distance Calculations", "Filter Options", &depth_dist, 1);
+	cv::createTrackbar("Distance and Angles Calculations", "Filter Options", &boundedRects, 1);
 }

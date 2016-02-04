@@ -7,6 +7,8 @@
 
 #include "include/logging/enumCvType.hpp"
 
+#include "include/utils/distance.hpp"
+
 #include "include/filters/selectMode.hpp"
 #include "include/filters/gaussianBlurWindows.hpp"
 #include "include/filters/hsvColorThresholdWindows.hpp"
@@ -17,108 +19,185 @@
 #include "include/filters/mergeFinalWindows.hpp"
 #include "include/filters/depthDistanceWindows.hpp"
 
-double calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect);
-double distance(cv::Point one, cv::Point two);
+double calcDistance (cv::Mat& image, cv::RotatedRect& boundedRect, double focalLen, int dist, int height, int isCalib);
 std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img);
 void calcHorizAngle(cv::Mat& image, double xDist, std::vector<cv::Point>& c, std::vector<cv::Point2f>& mc);
+void drawBoundedRectsWindows(cv::Mat output, double focalLen, int& d, int& h, int& calib, int& contoursThresh, int& apply, int& visible);
+void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, int contoursThresh);
 
-void drawBoundedRects(cv::Mat& src, int thresh)
+// double getDistance();
+// double getVerticalAngle();
+// double getHorizontalAngle();
+// void findContours(cv::Mat& src, std::vector<std::vector<cv::Point>>& contours, int thresh);
+// void findBoundedRects(cv::Mat& src, std::vector<std::vector<cv::Point>>& contours, );
+
+void drawBoundedRectsWindows(cv::Mat output, double focalLen, int& d, int& h, int& calib, int& contoursThresh, int& apply, int& visible)
+{
+    if (visible)
+    {
+ 	    cv::namedWindow("Distance and Shooting Angles Editor", CV_WINDOW_AUTOSIZE);
+        cv::createTrackbar("Apply Filter", "Distance and Shooting Angles Editor", &apply, 1);
+        cv::createTrackbar("Calibration Status", "Distance and Shooting Angles Editor", &calib, 1);
+        cv::createTrackbar("Calibration Distance", "Distance and Shooting Angles Editor", &d, 300);
+        cv::createTrackbar("Calibration Height", "Distance and Shooting Angles Editor", &h, 200);
+        cv::createTrackbar("Contours Threshold", "Distance and Shooting Angles Editor", &contoursThresh, 200);
+    }
+    else if (!visible)
+    {
+        cv::destroyWindow("Distance and Shooting Angles Editor");
+    }
+
+    if (apply)
+    {
+        drawBoundedRects(output, focalLen, d, h, calib, contoursThresh);
+
+ 	    cv::namedWindow("Distance and Shooting Angles Output", CV_WINDOW_AUTOSIZE);
+        cv::imshow("Distance and Shooting Angles Output", output);
+    }
+    else if (!apply)
+    {
+        cv::destroyWindow("Distance and Shooting Angles Output");
+    }
+}
+
+void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, int contoursThresh)
+{
+ 	std::vector< std::vector<cv::Point> > contours;
+ 	std::vector<cv::Vec4i> hierarchy;
+ 
+	// Convert src to gray format
+	cv::cvtColor(src, src, CV_BGR2GRAY);
+ 	// Detect edges using Threshold
+ 	cv::threshold(src, src, contoursThresh, 255, cv::THRESH_BINARY);
+ 	cv::findContours(src, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+
+ 	src = cv::Mat::zeros(src.size(), CV_8UC3);
+ 
+	// Get the moments
+  	std::vector<cv::Moments> mu(contours.size());
+  	for(int i = 0; i < contours.size(); i++)
+        mu[i] = moments(contours[i], false);
+
+	//  Get the mass centers
+  	std::vector<cv::Point2f> mc(contours.size());
+  	for(int i = 0; i < contours.size(); i++)
+        mc[i] = cv::Point2f(mu[i].m10 / mu[i].m00, mu[i].m01 / mu[i].m00);
+
+ 	// Get the minimally sized bounded rectangles
+ 	std::vector<cv::RotatedRect> minRect( contours.size());
+ 	for(int i = 0; i < contours.size(); i++)
+		minRect[i] = cv::minAreaRect(cv::Mat(contours[i]));
+ 
+ 	for(int i = 0; i < contours.size(); i++)
+	{
+ 		cv::Point2f rect_points[4]; 
+		minRect[i].points(rect_points);
+ 	}
+    std::vector<cv::Point> c;
+	// Bounded rectangle is the one at the 0th index
+	if (minRect.size() > 0)
+		calcDistance(src, minRect[0], focalLen, d, h, calib);
+    if (contours.size() > 0)
+    {
+        c = corners(contours[0], src);
+        calcHorizAngle(src, d, c, mc);
+    }
+
+    /*
+    // Draw the mass centers
+    for (int i = 0; i < mc.size(); i++)
+    {
+        cv::circle(src, mc[i], 5, cv::Scalar(255, 255, 0));
+    }
+    // Draw the corners of the contour object
+    for (int i = 0; i < c.size(); i++)
+    {
+        cv::circle(src, c[i], 5, cv::Scalar(0, 255, 0));
+    }
+    // Draw the contours
+  	for (int i = 0; i < contours.size(); i++)
+    {
+		cv::Scalar color = cv::Scalar(0, 255, 0);
+        cv::drawContours(src, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
+ 		color = cv::Scalar(0, 255, 255);
+        // Draw the bounded rectangle
+		for(int j = 0; j < 4; j++)
+		{
+			cv::line(src, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
+		}
+	}
+    */
+}
+#if 0
+void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, int contoursThresh)
 {
  	cv::Mat threshold_output;
+ 	cv::Mat img = cv::Mat::zeros(threshold_output.size(), CV_8UC3);
  	std::vector<std::vector<cv::Point> > contours;
  	std::vector<cv::Vec4i> hierarchy;
  
 	// Convert src to gray format
 	cv::cvtColor(src, threshold_output, CV_BGR2GRAY);
-
  	// Detect edges using Threshold
- 	cv::threshold(threshold_output, threshold_output, thresh, 255, cv::THRESH_BINARY);
- 	// Find contours
+ 	cv::threshold(threshold_output, threshold_output, contoursThresh, 255, cv::THRESH_BINARY);
  	cv::findContours(threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
  
 	// Get the moments
-  	std::vector<cv::Moments> mu(contours.size() );
-  	for( int i = 0; i < contours.size(); i++ )
-     		{ mu[i] = moments( contours[i], false ); }
+  	std::vector<cv::Moments> mu(contours.size());
+  	for(int i = 0; i < contours.size(); i++)
+        mu[i] = moments(contours[i], false);
 
-	//  Get the mass centers:
-  	std::vector<cv::Point2f> mc( contours.size() );
-  	for( int i = 0; i < contours.size(); i++ )
-     		{ mc[i] = cv::Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); }
+	//  Get the mass centers
+  	std::vector<cv::Point2f> mc(contours.size());
+  	for(int i = 0; i < contours.size(); i++)
+        mc[i] = cv::Point2f(mu[i].m10 / mu[i].m00, mu[i].m01 / mu[i].m00);
 
- 	// Approximate contours to rotated rectangles and ellipses
+ 	// Get the minimally sized bounded rectangles
  	std::vector<cv::RotatedRect> minRect( contours.size());
  	for(int i = 0; i < contours.size(); i++)
- 	{
 		minRect[i] = cv::minAreaRect(cv::Mat(contours[i]));
- 	}
  
- 	// Draw polygonal contour + bounding rects
- 	cv::Mat drawing = cv::Mat::zeros(threshold_output.size(), CV_8UC3);
  	for(int i = 0; i < contours.size(); i++)
 	{
- 		cv::Scalar color = cv::Scalar(0, 255, 255);
- 		//cv::drawContours(drawing, contours, i, color, 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
  		cv::Point2f rect_points[4]; 
 		minRect[i].points(rect_points);
-		for(int j = 0; j < 4; j++)
-		{
-			//cv::line(drawing, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
-		}
  	}
-
-    for (int i = 0; i < mc.size(); i++)
-    {
-        //cv::circle(drawing, mc[i], 5, cv::Scalar(255, 255, 0));
-    }
-
-
-    double d = 0;
     std::vector<cv::Point> c;
 	// Bounded rectangle is the one at the 0th index
 	if (minRect.size() > 0)
-		d = calculateDistance(drawing, minRect[0]);
+		calcDistance(img, minRect[0], focalLen, d, h, calib);
     if (contours.size() > 0)
     {
-        c = corners(contours[0], drawing);
-        calcHorizAngle(drawing, d, c, mc);
+        c = corners(contours[0], img);
+        calcHorizAngle(img, d, c, mc);
     }
 
     /*
+    // Draw the mass centers
+    for (int i = 0; i < mc.size(); i++)
+    {
+        cv::circle(img, mc[i], 5, cv::Scalar(255, 255, 0));
+    }
+    // Draw the corners of the contour object
     for (int i = 0; i < c.size(); i++)
     {
-        cv::circle(drawing, c[i], 5, cv::Scalar(0, 255, 0));
+        cv::circle(img, c[i], 5, cv::Scalar(0, 255, 0));
     }
-    */
-
-	// Calculate the area with the moments 00 and compare with the result of the OpenCV function
-	// printf("\t Info: Area and Contour Length \n");
+    // Draw the contours
   	for (int i = 0; i < contours.size(); i++)
     {
-        // printf(" * Contour[%2d] - Area (M_00) = %4.2f - Area OpenCV: %4.2f - Length: %4.2f\n", i, mu[i].m00, contourArea(contours[i]), arcLength( contours[i], true ) );
-        // printf("Contour[%2d] - Length: %4.2f\n", i, arcLength( contours[i], true ) );
 		cv::Scalar color = cv::Scalar(0, 255, 0);
-        if (i == 0)
-        {
-            cv::drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
-        }
+        cv::drawContours(img, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
+ 		color = cv::Scalar(0, 255, 255);
+        // Draw the bounded rectangle
+		for(int j = 0; j < 4; j++)
+		{
+			cv::line(img, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
+		}
 	}
-
- 	// Show in a window
- 	cv::namedWindow("Contours", CV_WINDOW_AUTOSIZE);
- 	cv::imshow("Contours", drawing);
+    */
 }
-
-double distance(cv::Point one, cv::Point two)
-{
-    return std::sqrt(std::pow(one.x - two.x, 2) + std::pow(one.y - two.y, 2));
-}
-
-// Returns the two dimensional distance between the components of two points
-double distance2D(double comp1, double comp2)
-{
-    return std::abs(comp2 - comp1);
-}
+#endif
 
 std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img)
 {
@@ -171,71 +250,72 @@ std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img)
 void calcHorizAngle(cv::Mat& image, double xDist, std::vector<cv::Point>& c, std::vector<cv::Point2f>& mc)
 {
     const double PI = 3.14159265;
-
-    // Calibration phase
-    //double hStraight = distance2D(c[0].y, c[1].y);
-    // Note: dStraight may need to be calibrated too
-
-    //double hLeft = distance2D(c[0].y, c[1].y);
-    //double hRight = distance2D(c[2].y, c[3].y);
-    //double hAvg = (hLeft + hRight) / 2;
     double wPixel = distance2D(c[0].x, c[3].x);
     double center = image.cols / 2;
     double distFromCenter = mc[0].x - center;
     double inchesPerPixel = 20 / wPixel;
 
-    cv::circle(image, mc[0], 5, cv::Scalar(255, 255, 0));
-	cv::line(image, cv::Point(center, mc[0].y), mc[0], cv::Scalar (255, 255, 100));
-
-
-    //double yDist = distFromCenter + (wPixel / 2);
     double yDist = distFromCenter * inchesPerPixel;
     double theta = std::asin(yDist / xDist) * 180 / PI;
 
-    //double alpha = std::atan(yTrans / dStraight) * 180 / PI;
-    //double beta = std::atan((yTrans * (hStraight + hAvg)) / (dStraight * (hStraight - hRight))) * 180 / PI;
+    cv::circle(image, mc[0], 5, cv::Scalar(255, 255, 0));
+	cv::line(image, cv::Point(center, mc[0].y), mc[0], cv::Scalar (255, 255, 100));
 
 	char str[50];
 	sprintf(str, "Horiz Angle  = %4.2f", theta);
-    cv::putText(image, str, cv::Point(10, 380), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
-
-	//sprintf(str, "Beta    = %4.2f", beta);
-    //cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+    cv::putText(image, str, cv::Point(10, 440), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 }
 
-double calculateDistance (cv::Mat& image, cv::RotatedRect& boundedRect)
+double calcDistance (cv::Mat& image, cv::RotatedRect& boundedRect, double focalLen, int dist, int height, int isCalib)
 {
-	double focalLen = 675.0;
-	// 20 inches real width
-	double wReal = 20;
-	double wPixel = 0;
-	double d = 180;
-	double theta = 0;
-    const double TOWER_HEIGHT = 7.1;
     const double PI = 3.14159265;
+	// 20 inches real width
+	int wReal = 20;
+	int wPixel = 0;
+	double theta = 0;
+    double d = 0;
 
 	cv::Point2f vert[4];
 	boundedRect.points(vert);
-	cv::line(image, vert[0], vert[3], cv::Scalar (255, 0, 0));
-	wPixel = distance(vert[0], vert[3]);
-    // focalLen = (wPixel * d) / wReal;
-	d = (wReal * focalLen) / wPixel;
-    theta = asin(TOWER_HEIGHT / (d / 12)) * 180 / PI;
+    int length = static_cast<int>(distance (vert[0], vert[3]));
+    int width = static_cast<int>(distance (vert[0], vert[1]));
+
+    if (length > width)
+    {
+	    cv::line(image, vert[0], vert[3], cv::Scalar(100, 0, 100));
+	    cv::line(image, vert[1], vert[2], cv::Scalar(100, 0, 100));
+	    wPixel = length;
+    }
+    // Object is sideways
+    else
+    {
+	    cv::line(image, vert[0], vert[1], cv::Scalar(100, 0, 100));
+	    cv::line(image, vert[2], vert[3], cv::Scalar(100, 0, 100));
+	    wPixel = width;
+    }
+
+    if (isCalib == 1)
+        focalLen = (static_cast<double>(wPixel * dist)) / wReal;
+    else if (isCalib == 0)
+        d = (wReal * focalLen) / wPixel;
+
+    theta = asin(static_cast<double>(height) / dist) * 180 / PI;
 
 	char str[50];
-	//sprintf(str, "Line Length  = %4.2f", wPixel);
+	
+    //sprintf(str, "Line Length  = %4.2f", wPixel);
     //cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
-	sprintf(str, "Focal Length = %4.2f", focalLen);
-    cv::putText(image, str, cv::Point(10, 420), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+    sprintf(str, "Focal Length = %4.2f", focalLen);
+    cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
-	sprintf(str, "Distance     = %4.2f", d);
-    cv::putText(image, str, cv::Point(10, 440), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+    sprintf(str, "Distance     = %4.2f", d);
+    cv::putText(image, str, cv::Point(10, 420), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
 	sprintf(str, "Vert Angle   = %4.2f", theta);
     cv::putText(image, str, cv::Point(10, 460), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
 
-    return d;
+    return dist;
 }
 
 int main( int argc, char *argv[])
@@ -249,6 +329,7 @@ int main( int argc, char *argv[])
 	int hough = 0;
 	int depth_dist = 0;
 	int merge = 0;
+    int boundedRects = 1;
 
 	// Parameters for applying filters even if windows are closed
 	int apply_blur = 1;
@@ -259,6 +340,7 @@ int main( int argc, char *argv[])
 	int apply_hough = 0;
 	int apply_depth_dist = 0;
 	int apply_merge = 1;
+    int applyBoundedRects = 1;
 
 	// gaussianBlur parameters
 	int blur_ksize = 7;
@@ -307,8 +389,15 @@ int main( int argc, char *argv[])
 	int weight1 = 100;
 	int weight2 = 100;
 
-    // contour parameters
-	int contours = 120;
+    // drawBoundedRects parameters
+    bool isAuton = false;
+	double focalLenClose = 600.0;
+    double focalLenFar = 675.0;
+    int dist = 180;
+    // Tower height is 7 feet 1 inches which is 85 inches
+    int height = 85;
+    int calibStatus = 0;
+    int contoursThresh = 140;
 
 	std::cout << "\n";
 	std::cout << " =========== FILTER LIST =========== " << "\n";
@@ -321,6 +410,7 @@ int main( int argc, char *argv[])
 	std::cout << "| (5) Laplacian Sharpen Filter      |" << "\n";
 	std::cout << "| (6) Hough Lines Filter            |" << "\n";
 	std::cout << "| (7) Merge Final Outputs           |" << "\n";
+	std::cout << "| (8) Distance and Shooting Angles  |" << "\n";
 	std::cout << "|                                   |" << "\n";
 	std::cout << " =================================== " << "\n";
 	std::cout << "\n";
@@ -352,9 +442,7 @@ int main( int argc, char *argv[])
         }
     }
     while (port != -1 && !camera.isOpened());
-
-    if (port == -1)
-        return -1;
+    if (port == -1) return -1;
 
 	// Matrices for holding image data
 	cv::Mat rgb, rgb_orig;
@@ -369,7 +457,7 @@ int main( int argc, char *argv[])
 		{
 			cv::waitKey(0);
 		}
-		selectMode(blur, color, dilate_erode, edge, laplacian, hough, depth_dist, merge);
+		selectMode(blur, color, dilate_erode, edge, laplacian, hough, depth_dist, merge, boundedRects);
 
         // Use images
 		if (argc > 2)
@@ -388,15 +476,16 @@ int main( int argc, char *argv[])
 			camera >> rgb;
 		}
 		cv::imshow("BGR Feed", rgb);
-		cv::namedWindow("Contours", CV_WINDOW_AUTOSIZE);
-		cv::createTrackbar("Contours Threshold:", "Contours", &contours, 255);
 		rgb.copyTo(image);
 
 		// Filters are only applied if last parameter is true, otherwise their windows are destroyed
 		gaussianBlurWindows(image, blur_ksize, sigmaX, sigmaY, apply_blur, blur);
 		hsvColorThresholdWindows(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd, apply_color, color);
 		dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
-		drawBoundedRects(image, contours);
+        if (isAuton)
+            drawBoundedRectsWindows(image, focalLenFar, dist, height, calibStatus, contoursThresh, applyBoundedRects, boundedRects);
+        else
+            drawBoundedRectsWindows(image, focalLenClose, dist, height, calibStatus, contoursThresh, applyBoundedRects, boundedRects);
 		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
 		laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
 		houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
