@@ -1,4 +1,4 @@
 # Compile library
-if g++ main.cpp build/lazer-vision.so -o vision `pkg-config opencv --cflags --libs` --std=c++11; then
-	./vision 1 	# Dummy value to force program to run camera
+if g++ main.cpp udp_client_server.cpp build/lazer-vision.so -o vision -L/usr/local/cuda-6.5/lib/ `pkg-config opencv --cflags --libs` --std=c++11; then
+	./vision > images/fps.png
 fi

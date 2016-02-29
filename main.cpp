@@ -1,92 +1,174 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <iostream>
 #include <stdio.h>
 #include <string>
 #include <cmath>
+#include <vector>
+#include <unistd.h>
+#include <cmath>
+#include <thread>
+
+#include "udp_client_server.h"
 
 #include "include/logging/enumCvType.hpp"
 
 #include "include/utils/distance.hpp"
 
 #include "include/filters/selectMode.hpp"
-#include "include/filters/gaussianBlurWindows.hpp"
-#include "include/filters/hsvColorThresholdWindows.hpp"
-#include "include/filters/dilateErodeWindows.hpp"
-#include "include/filters/cannyEdgeDetectWindows.hpp"
-#include "include/filters/laplacianSharpenWindows.hpp"
-#include "include/filters/houghLinesWindows.hpp"
-#include "include/filters/mergeFinalWindows.hpp"
-#include "include/filters/depthDistanceWindows.hpp"
+#include "include/filters/gaussianBlur.hpp"
+#include "include/filters/hsvColorThreshold.hpp"
+#include "include/filters/dilateErode.hpp"
+#include "include/filters/cannyEdgeDetect.hpp"
+#include "include/filters/laplacianSharpen.hpp"
+#include "include/filters/houghLines.hpp"
+#include "include/filters/mergeFinal.hpp"
 
-double calcDistance (cv::Mat& image, cv::RotatedRect& boundedRect, double focalLen, int dist, int height, int isCalib);
-std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img);
-void calcHorizAngle(cv::Mat& image, double xDist, std::vector<cv::Point>& c, std::vector<cv::Point2f>& mc);
-void drawBoundedRectsWindows(cv::Mat output, double focalLen, int& d, int& h, int& calib, int& contoursThresh, int& apply, int& visible);
-void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, int contoursThresh);
+const double PI = 3.14159265;
+const int LOOPS_PER_SEC = 1; 
+const int MICROSEC_TO_SEC = 1000000;
 
-// double getDistance();
-// double getVerticalAngle();
-// double getHorizontalAngle();
-// void findContours(cv::Mat& src, std::vector<std::vector<cv::Point>>& contours, int thresh);
-// void findBoundedRects(cv::Mat& src, std::vector<std::vector<cv::Point>>& contours, );
+#define DEBUG 0
+#define FPS 1
+#define JETSON 0
 
-void rectThreshold(std::vector<std::vector<cv::Point> >& contour, cv::RotatedRect& rect, double dist)
+double vertAngle = 0;
+double horizAngle = 0;
+double fps = 0;
+char buff[50];
+
+void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int contoursThresh, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, double& calcDist, double& vertAngle, double& horizAngle);
+double calcDistance (cv::Point2f rectPoints[4], double focalLen, int dist, int height);
+double calcHorizAngle(int screenWidth, double xDist, std::vector<cv::Point> corners, cv::Point2f& mc);
+double calcVertAngle(int height, int dist);
+std::vector<cv::Point> corners (std::vector<cv::Point>& pts, int screenWidth, int screenHeight);
+void fastHSVThreshold(cv::Mat& image);
+void receiveData (udp_client_server::udp_server& server);
+void receivePing (udp_client_server::udp_server& server);
+void sendData (udp_client_server::udp_client& client);
+void drawData(cv::Mat& image, double distance, double horizAngle, double vertAngle);
+#if DEBUG
+void shapeThreshold(cv::Mat& src, std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, int& goalInd);
+#else
+void shapeThreshold(std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, int& goalInd);
+#endif
+
+#if DEBUG
+void shapeThreshold(cv::Mat& src, std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, int& goalInd)
+#else
+void shapeThreshold(std::vector<std::vector<cv::Point> >& contours, std::vector<cv::RotatedRect>& rect, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, int& goalInd)
+#endif
 {
-	const double lScale = 0.417;
-	const double wScale = 0.244697;
-	cv::Point2f vertices[4];
-	rect.points(vertices);
-	double rotatedArea = distance(vertices[0],vertices[1])*distance(vertices[1], vertices[2]);
-	for (int i = 0; i < contour.size(); i++)
+#if DEBUG
+    cv::Mat debug = src.clone();
+    char str[50];
+
+	cv::Point2f vert[4];
+	for (int i = 0; i < rect.size(); i++)
 	{
-		double contourArea = cv::contourArea(contour[i]);
-		double length = distance(vertices[0], vertices[3]); 
-		double width =  distance(vertices[0], vertices[1]);
-		if (length < width)
-			std::swap(length, width);
-		double lRatio = length/dist;a
-		double wRatio = width/dist;
-		std::cout << "distance: " << dist << ", lRatio: " << lRatio << ", wRatio: " << wRatio << "\n";
-		if (!(std::abs(lRatio - lScale) < 0.1 && std::abs(wRatio - wScale) < 0.1))
+	    rect[i].points(vert);
+		double height = rect[i].size.height;
+		double width = rect[i].size.width;
+        double rectArea = height * width;
+        double contourArea = cv::contourArea(contours[i]);
+
+        for (int v = 0; v < 4; v++)
+        {
+            sprintf(str, "%i", v);
+            cv::putText(debug, str, vert[v], CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 255, 0), 1, 8, false);
+        }
+        
+        // If any of the following are true, the shape is not the goal
+        if (std::abs((height / width) - sideRatio) > sideThreshold || 
+            std::abs((contourArea / rectArea) - areaRatio) > areaThreshold || 
+            rectArea < minArea ||  
+            rectArea > maxArea || 
+            (width > height && (std::abs(rect[i].angle) > angleThreshold)) || 
+            (width < height && (std::abs(std::abs(rect[i].angle) - 90) > angleThreshold)))
 		{
-			contour.erase(contour.begin() + i);
-			i--; //because contour just got smaller
-			std::cout << "contour erased..." << "\n";
+            //sprintf(str, "H");
+            //cv::putText(debug, str, cv::Point((vert[0].x + height / 2), vert[0].y), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 255, 255), 1, 8, false);
+            //sprintf(str, "W");
+            //cv::putText(debug, str, cv::Point((vert[0].x + width / 2), vert[0].y), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 255, 255), 1, 8, false);
+            //sprintf(str, "Test: %d,%.2f,%.2f,%d", (width > height), std::abs(rect[i].angle), angleThreshold, (std::abs(rect[i].angle) > angleThreshold));
+            sprintf(str,  "%d,%d,%d,%d,%.2f,%d,%d", 
+                (std::abs((height / width) - sideRatio) > sideThreshold), 
+                (std::abs((contourArea / rectArea) - areaRatio) > areaThreshold), 
+                (rectArea < minArea),
+                (rectArea > maxArea), 
+                rect[i].angle,
+                (width > height && (std::abs(rect[i].angle) > angleThreshold)),
+                (width < height && (std::abs(std::abs(rect[i].angle) - 90) > angleThreshold)));
+            cv::putText(debug, str, vert[3], CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 255, 255), 1, 8, false);
+            // std::cerr << "Side Threshold: " << (std::abs((height / width) - sideRatio) > sideThreshold) << ", Area Threshold: " << (std::abs((contourArea / rectArea) - areaRatio) > areaThreshold) << ", < Min Area: " << (rectArea < minArea) << ", > Max Area: " << (rectArea > maxArea) << ", Angle: " << rect[i].angle << ", Angle Threshold: " << (std::abs(rect[i].angle) > angleThreshold) << ", Angle Threshold: " << (width < height && (std::abs(std::abs(rect[i].angle) - 90) > angleThreshold)) << "\n";
+            //sprintf(str, "-(%i)", i);
+            //cv::putText(debug, str, cv::Point(contours[i][0]), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 255, 255), 1, 8, false);
+            contours.erase(contours.begin() + i);
+			rect.erase(rect.begin() + i);
+			i--; //because vector just got smaller
+			//std::cerr << "contour erased..." << "\n";
 		}
+        else
+        {
+            goalInd = i;
+            //std::cerr << "Ratio (" << i << "): " << (height / width) << ", area: " << rectArea << ", area ratio : " << (contourArea / rectArea) << ", angle: " << rect[i].angle << "\n";
+            sprintf(str, "+(%i)", i);
+            cv::putText(debug, str, cv::Point(contours[i][0]), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 255, 255), 1, 8, false);
+        }
+        
+        cv::imshow("Debug Shape Threshold", debug);
 	}
+#else
+	for (int i = 0; i < rect.size(); i++)
+	{
+		double height = rect[i].size.height;
+		double width = rect[i].size.width;
+        double rectArea = height * width;
+        double contourArea = cv::contourArea(contours[i]);
+
+        // If any of the following are true, the shape is not the goal
+        if (std::abs((height / width) - sideRatio) > sideThreshold || 
+            std::abs((contourArea / rectArea) - areaRatio) > areaThreshold || 
+            rectArea < minArea || 
+            rectArea > maxArea || 
+            (width > height && (std::abs(rect[i].angle) > angleThreshold)) || 
+            (width < height && (std::abs(std::abs(rect[i].angle) - 90) > angleThreshold)))
+		{
+            contours.erase(contours.begin() + i);
+			rect.erase(rect.begin() + i);
+            // Size of vector got smaller
+			i--;
+		}
+        else
+        {
+            goalInd = i;
+        }
+	}
+#endif
+
 }
 
-void drawBoundedRectsWindows(cv::Mat output, double focalLen, int& d, int& h, int& calib, int& contoursThresh, int& apply, int& visible)
+void fastHSVThreshold(cv::Mat& image)
 {
-	if (visible)
-	{
-		cv::namedWindow("Distance and Shooting Angles Editor", CV_WINDOW_AUTOSIZE);
-		cv::createTrackbar("Apply Filter", "Distance and Shooting Angles Editor", &apply, 1);
-		cv::createTrackbar("Calibration Status", "Distance and Shooting Angles Editor", &calib, 1);
-		cv::createTrackbar("Calibration Distance", "Distance and Shooting Angles Editor", &d, 300);
-		cv::createTrackbar("Calibration Height", "Distance and Shooting Angles Editor", &h, 200);
-		cv::createTrackbar("Contours Threshold", "Distance and Shooting Angles Editor", &contoursThresh, 200);
-	}
-	else if (!visible)
-	{
-		cv::destroyWindow("Distance and Shooting Angles Editor");
-	}
+    cv::cvtColor(image, image, CV_BGR2HSV);
+    cv::Mat *channels = new cv::Mat[3];
 
-	if (apply)
-	{
-		drawBoundedRects(output, focalLen, d, h, calib, contoursThresh);
+    cv::inRange(channels[0], cv::Scalar(0), cv::Scalar(180), channels[0]);
+    cv::inRange(channels[1], cv::Scalar(0), cv::Scalar(255), channels[1]);
+    cv::inRange(channels[2], cv::Scalar(0), cv::Scalar(255), channels[2]);
 
-		cv::namedWindow("Distance and Shooting Angles Output", CV_WINDOW_AUTOSIZE);
-		cv::imshow("Distance and Shooting Angles Output", output);
-	}
-	else if (!apply)
-	{
-		cv::destroyWindow("Distance and Shooting Angles Output");
-	}
+    cv::bitwise_and(channels[0], channels[1], channels[0]);
+    cv::bitwise_and(channels[0], channels[2], channels[0]);
+
+    channels[1] = channels[0].clone();
+    channels[2] = channels[0].clone();
+
+    cv::merge(channels, 3, image);
+    delete[] channels;
+    cv::cvtColor(image, image, CV_HSV2BGR);
 }
 
-void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, int contoursThresh)
+
+void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int contoursThresh, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, double& calcDist, double& vertAngle, double& horizAngle)
 {
 	std::vector< std::vector<cv::Point> > contours;
 	std::vector<cv::Vec4i> hierarchy;
@@ -97,82 +179,95 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, in
 	cv::threshold(src, src, contoursThresh, 255, cv::THRESH_BINARY);
 	cv::findContours(src, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
 
+	cv::cvtColor(src, src, CV_GRAY2BGR);
 	src = cv::Mat::zeros(src.size(), CV_8UC3);
-
+#if 0
 	// Get the moments
 	std::vector<cv::Moments> mu(contours.size());
 	for(int i = 0; i < contours.size(); i++)
-			mu[i] = moments(contours[i], false);
+		mu[i] = cv::moments(contours[0], false);
 
 	//  Get the mass centers
 	std::vector<cv::Point2f> mc(contours.size());
 	for(int i = 0; i < contours.size(); i++)
-			mc[i] = cv::Point2f(mu[i].m10 / mu[i].m00, mu[i].m01 / mu[i].m00);
-
+		mc[i] = cv::Point2f(mu[i].m10 / mu[i].m00, mu[i].m01 / mu[i].m00);
+#endif
 	// Get the minimally sized bounded rectangles
 	std::vector<cv::RotatedRect> minRect( contours.size());
 	for(int i = 0; i < contours.size(); i++)
 		minRect[i] = cv::minAreaRect(cv::Mat(contours[i]));
 
-	// Extract the four corners of the bounded rectangles
-	for(int i = 0; i < contours.size(); i++)
-	{
-		cv::Point2f rect_points[4]; 
-		minRect[i].points(rect_points);
-	}
-	std::vector<cv::Point> c;
+    for (int i = 0; i < contours.size(); i++)
+    {
+        cv::Moments mu = cv::moments(contours[i], false);
+#if DEBUG
+        cv::circle(src, cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00), 5, cv::Scalar(255, 255, 0));
+#endif
+        // Check if the center of mass is outside the tower goal and whether it is far enough
+        double dist = cv::pointPolygonTest(contours[i], cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00), true);
+#if DEBUG
+        std::cerr << "Dist: " << dist << "\n";
+#endif
+        if (dist > -5 || dist < -15)
+        {
+#if DEBUG
+            std::cerr << "Contour Erased\n";
+#endif
+            contours.erase(contours.begin() + i);
+            minRect.erase(minRect.begin() + i);
+			i--; //because vector just got smaller
+        }
+    }
+
+	cv::Point2f rectPoints[4];
 	// Bounded rectangle is the one at the 0th index
 	if (minRect.size() > 0)
-	{
-		double dist = calcDistance(src, minRect[0], focalLen, d, h, calib);
-		rectThreshold(contours, minRect[0], dist);
-	}
-	if (contours.size() > 0)
-	{
-		c = corners(contours[0], src);
-		calcHorizAngle(src, d, c, mc);
-	}
+	{	
+        int goalInd = 0;
+		int screenWidth = src.cols;
+        int screenHeight = src.rows;
+#if DEBUG
+        shapeThreshold(src, contours, minRect, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, goalInd);
+#else
+        shapeThreshold(contours, minRect, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, goalInd);
+#endif
+		minRect[goalInd].points(rectPoints);
+        cv::Moments mu = cv::moments(contours[goalInd], false);
+        cv::Point2f mc = cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00);
+        std::vector<cv::Point> c = corners(contours[goalInd], screenWidth, screenHeight);
 
-	/*
-	// Draw the mass centers
-	for (int i = 0; i < mc.size(); i++)
-	{
-	cv::circle(src, mc[i], 5, cv::Scalar(255, 255, 0));
+        // Draw the center of the goal and a line from this point to the center
+        cv::line(src, cv::Point(src.cols / 2, mc.y), mc, cv::Scalar (255, 0, 255));
+        cv::circle(src, mc, 5, cv::Scalar(255, 0, 255));
+        // Draw the bottom left and right points of the goal
+        cv::circle(src, c[0], 5, cv::Scalar(255, 0, 255));
+        cv::circle(src, c[3], 5, cv::Scalar(255, 0, 255));
+
+		calcDist = calcDistance(rectPoints, focalLen, d, h);
+		horizAngle = calcHorizAngle(screenWidth, calcDist, c, mc);
+		vertAngle = calcVertAngle(h, calcDist);
 	}
-	// Draw the corners of the contour object
-	for (int i = 0; i < c.size(); i++)
+    
+    // Draw the contours
+	for(int i = 0; i < contours.size(); i++)
 	{
-	cv::circle(src, c[i], 5, cv::Scalar(0, 255, 0));
-	}
-	*/
-	// Draw the contours
-	for (int i = 0; i < contours.size(); i++)
-	{
-		cv::Scalar color = cv::Scalar(0, 255, 0);
+		cv::Scalar color = cv::Scalar(255, 255, 0);
 		cv::drawContours(src, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
-		color = cv::Scalar(0, 255, 255);
-		/*
-		// Draw the bounded rectangle
-		for(int j = 0; j < 4; j++)
-		{
-			cv::line(src, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
-		}
-		*/
 	}
 }
 
-std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img)
+std::vector<cv::Point> corners (std::vector<cv::Point>& pts, int screenWidth, int screenHeight)
 {
 	cv::Point tLeft = cv::Point (0, 0);
-	cv::Point tRight = cv::Point (img.cols, 0);
-	cv::Point bLeft = cv::Point (0, img.rows);
-	cv::Point bRight = cv::Point (img.cols, img.rows);
+	cv::Point tRight = cv::Point (screenWidth, 0);
+	cv::Point bLeft = cv::Point (0, screenHeight);
+	cv::Point bRight = cv::Point (screenWidth, screenHeight);
 
 	// Initialize to the maximum possible values
-	double tLeftD = img.cols;
-	double tRightD = img.cols;
-	double bLeftD = img.cols;
-	double bRightD = img.cols;
+	double tLeftD = screenWidth;
+	double tRightD = screenWidth;
+	double bLeftD = screenWidth;
+	double bRightD = screenWidth;
 
 	std::vector<cv::Point> c;
 	c.push_back(bLeft);
@@ -209,253 +304,247 @@ std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img)
 	return c;
 }
 
-void calcHorizAngle(cv::Mat& image, double xDist, std::vector<cv::Point>& c, std::vector<cv::Point2f>& mc)
+double calcVertAngle(int height, int dist)
 {
-	const double PI = 3.14159265;
-	double wPixel = distance2D(c[0].x, c[3].x);
-	double center = image.cols / 2;
-	double distFromCenter = mc[0].x - center;
+	return ((static_cast<double>(height) / dist) * 180 / PI);
+}
+
+double calcHorizAngle(int screenWidth, double xDist, std::vector<cv::Point> corners, cv::Point2f& mc)
+{
+	double wPixel = distance2D(corners[0].x, corners[3].x);
+	double center = screenWidth / 2;
+	double distFromCenter = mc.x - center;
 	double inchesPerPixel = 20 / wPixel;
 
 	double yDist = distFromCenter * inchesPerPixel;
 	double theta = std::asin(yDist / xDist) * 180 / PI;
-
-	cv::circle(image, mc[0], 5, cv::Scalar(255, 255, 0));
-	cv::line(image, cv::Point(center, mc[0].y), mc[0], cv::Scalar (255, 255, 100));
-
-	char str[50];
-	sprintf(str, "Horiz Angle  = %4.2f", theta);
-	cv::putText(image, str, cv::Point(10, 440), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
+	return theta;
 }
 
-double calcDistance (cv::Mat& image, cv::RotatedRect& boundedRect, double focalLen, int dist, int height, int isCalib)
+double calcDistance (cv::Point2f rectPoints[4], double focalLen, int dist, int height)
 {
 	// 20 inches real width
 	int wReal = 20;
 	int wPixel = 0;
 	double theta = 0;
 	double d = 0;
-	const double PI = 3.14159265;
 
-	cv::Point2f vert[4];
-	boundedRect.points(vert);
-	int length = static_cast<int>(distance (vert[0], vert[3]));
-	int width = static_cast<int>(distance (vert[0], vert[1]));
+	int length = static_cast<int>(distance (rectPoints[0], rectPoints[3]));
+	int width = static_cast<int>(distance (rectPoints[0], rectPoints[1]));
 
 	if (length > width)
-	{
-		cv::line(image, vert[0], vert[3], cv::Scalar(100, 0, 100));
-		cv::line(image, vert[1], vert[2], cv::Scalar(100, 0, 100));
 		wPixel = length;
-	}
-	// Object is sideways
 	else
-	{
-		cv::line(image, vert[0], vert[1], cv::Scalar(100, 0, 100));
-		cv::line(image, vert[2], vert[3], cv::Scalar(100, 0, 100));
 		wPixel = width;
-	}
 
-	if (isCalib == 1)
-		focalLen = (static_cast<double>(wPixel * dist)) / wReal;
-	else if (isCalib == 0)
-		d = (wReal * focalLen) / wPixel;
-
+	d = (wReal * focalLen) / wPixel;
 	theta = asin(static_cast<double>(height) / dist) * 180 / PI;
 
-	char str[50];
-	
-	//sprintf(str, "Line Length  = %4.2f", wPixel);
-	//cv::putText(image, str, cv::Point(10, 400), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
-
-	sprintf(str, "Focal Length = %4.2f", focalLen);
-	cv::putText(image, str, cv::Point(10, 420), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
-
-	sprintf(str, "Distance	 = %4.2f", d);
-	cv::putText(image, str, cv::Point(10, 460), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
-
-	sprintf(str, "Vert Angle   = %4.2f", theta);
-	cv::putText(image, str, cv::Point(10, 480), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 0), 1, 8, false);
-
-	//return dist;
 	return d;
+}
+
+void drawData(cv::Mat& image, double distance, double horizAngle, double vertAngle)
+{
+    char str[30];
+
+	sprintf(str, "Distance     = %4.2f", distance);
+	cv::putText(image, str, cv::Point(10, 430), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 200), 1, 8, false);
+	sprintf(str, "Horiz Angle  = %4.2f", horizAngle);
+	cv::putText(image, str, cv::Point(10, 450), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 200), 1, 8, false);
+	sprintf(str, "Vert Angle   = %4.2f", vertAngle);
+	cv::putText(image, str, cv::Point(10, 470), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 200), 1, 8, false);
 }
 
 int main( int argc, char *argv[])
 {
-	// Parameters for selecting which filters to apply
-	int blur = 0;
-	int color = 0;
-	int dilate_erode = 0;
-	int edge = 0;
-	int laplacian = 0;
-	int hough = 0;
-	int depth_dist = 0;
-	int merge = 0;
-	int boundedRects = 1;
-
-	// Parameters for applying filters even if windows are closed
-	int apply_blur = 1;
-	int apply_color = 1;
-	int apply_dilate_erode = 0;
-	int apply_edge = 1;
-	int apply_laplacian = 0;
-	int apply_hough = 0;
-	int apply_depth_dist = 0;
-	int apply_merge = 1;
-	int applyBoundedRects = 1;
-
 	// gaussianBlur parameters
 	int blur_ksize = 7;
 	int sigmaX = 10;
 	int sigmaY = 10;
 
 	// hsvColorThreshold parameters
-	int hMin = 100;
+	int hMin = 70;
 	int hMax = 180;
 	int sMin = 0;
-	int sMax = 30;
+	int sMax = 100;
 	int vMin = 80;
 	int vMax = 100;
 	int debugMode = 0;
-		// 0 is none, 1 is bitAnd between h, s, and v
+	// 0 is none, 1 is bitAnd between h, s, and v
 	int bitAnd = 1;
 
-	// dilateErode parameters
-	int holes = 0;
-	int noise = 0;
-	int size = 1;
-	cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS,
-					  cv::Size(2 * size + 1, 2 * size + 1), 
-					  cv::Point(size, size) );
-	
-	// cannyEdgeDetect parameters
-	int threshLow = 100;
-	int threshHigh = 300;
-	
-	// laplacianSharpen parameters
-	int laplacian_ksize = 3;
-		// optional scale value added to image
-	int scale = 1;
-		// optional delta value added to image
-	int delta = 0;
-	int ddepth = CV_16S;
-	
-	// houghLines parameters
-	int rho = 1;
-	int theta = 180;
-	int threshold = 50;
-	int lineMin = 50;
-	int maxGap = 10;
-
-	// mergeFinal parameters
-	int weight1 = 100;
-	int weight2 = 100;
-
 	// drawBoundedRects parameters
-	bool isAuton = false;
-	double focalLenClose = 675.0;
-	double focalLenFar = 675.0;
-	double cameraHeight = 0.933;
-	const double TOWER_HEIGHT = 85;
-	int dist = 180;
-	// Tower height is 7 feet 1 inches which is 85 inches
+	double focalLen = 673.40;
+	double cameraHeight = 39;
+	const double TOWER_HEIGHT = 84;
+	int dist = 148;
+	//double vertAngle = 0;
+	//double horizAngle = 0;
+	double calcDist = 0;
+	// Tower height is 6 feet 11 inches (to the bottom of the tape) which is 83 inches
 	int height = TOWER_HEIGHT - cameraHeight;
-	int calibStatus = 0;
 	int contoursThresh = 140;
 
-	std::cout << "\n";
-	std::cout << " =========== FILTER LIST =========== " << "\n";
-	std::cout << "|								   |" << "\n";
-	std::cout << "| (0) No Filter					 |" << "\n";
-	std::cout << "| (1) Gaussian Blur Filter		  |" << "\n";
-	std::cout << "| (2) HSV Color Filter			  |" << "\n";
-	std::cout << "| (3) Dilate and Erode Filter	   |" << "\n";
-	std::cout << "| (4) Canny Edge Detection Filter   |" << "\n";
-	std::cout << "| (5) Laplacian Sharpen Filter	  |" << "\n";
-	std::cout << "| (6) Hough Lines Filter			|" << "\n";
-	std::cout << "| (7) Merge Final Outputs		   |" << "\n";
-	std::cout << "| (8) Distance and Shooting Angles  |" << "\n";
-	std::cout << "|								   |" << "\n";
-	std::cout << " =================================== " << "\n";
-	std::cout << "\n";
+    // Shape threshold parameters
+    int s = 145;
+    int a = 35;
+    int minA = 800;
+    int maxA = 25000;
+    int sideT = 100;
+    int areaT = 20;
+    int angleT = 40;
+    double sideRatio = (double) s / 100;
+    double areaRatio = (double) a / 100;
+    double minArea = (double) minA;
+    double maxArea = (double) maxA;
+    double sideThreshold = (double) sideT / 100;
+    double areaThreshold = (double) areaT / 100;
+    double angleThreshold = (double) angleT;
 
-	std::cout << "\n";
-	std::cout << " ============== NOTICE ============= " << "\n";
-	std::cout << "|								   |" << "\n";
-	std::cout << "| Press 'q' to quit without saving  |" << "\n";
-	std::cout << "| Press ' ' to pause				|" << "\n";
-	std::cout << "|								   |" << "\n";
-	std::cout << " =================================== " << "\n";
-	std::cout << "\n";
+#if JETSON
+    std::cerr << "Waiting 10 seconds\n";
+    usleep(10000000);
+#endif
 
-	int port = 0;
-	cv::VideoCapture camera;
-	do
+#if FPS
+	FILE *pipe_gp = popen("gnuplot", "w");	
+	fputs("set terminal png\n", pipe_gp);
+	fputs("plot '-' u 1:2 \n", pipe_gp);
+
+	double avg_total = 0;
+	double whileclock = 1;
+#endif
+
+#if JETSON
+	cv::namedWindow("Testing", cv::WINDOW_AUTOSIZE);
+#endif
+
+	std::string addr = "10.1.15.6";
+	std::string host = "10.1.15.8";
+	int port = 5810;
+
+	udp_client_server::udp_client client(addr, port);
+	udp_client_server::udp_server server(host, port);
+
+    std::thread listenForPing (receivePing, std::ref(server));
+    listenForPing.join();
+
+    std::thread netSend (sendData, std::ref(client));
+    netSend.detach();
+
+    std::thread netReceive (receiveData, std::ref(server));
+    netReceive.detach();
+
+	cv::VideoCapture camera (0);
+	std::cerr << "Opened camera at port 0\n";
+
+	if(!camera.isOpened())
 	{
-		std::cout << "Enter the port number of the camera (-1 to quit): ";
-		std::cin >> port;
-
-		// Reprompt if user enters invalid input
-		if (port <= 10 && port >= 0)
-		{
-			camera = cv::VideoCapture (port);
-			if(!camera.isOpened())
-			{
-				std::cout << "\nUnable to open camera at Port " << port << "\n\n";
-			}
-		}
+		std::cerr << "Error: camera not opened successfully\n";
+		return -1;
 	}
-	while (port != -1 && !camera.isOpened());
-	if (port == -1) return -1;
 
 	// Matrices for holding image data
-	cv::Mat rgb, rgb_orig;
 	cv::Mat image;
 
-		// Press q to quit the program
+	// Press q to quit the program
 	char kill = ' ';
-	while ((kill != 'q') && (kill != 's'))
+
+	//while (whileclock < 200)
+	while ((kill != 'q'))
 	{
-		// Press space to pause program, then any key to resume
-		if (kill == ' ')
-		{
-			cv::waitKey(0);
-		}
-		selectMode(blur, color, dilate_erode, edge, laplacian, hough, depth_dist, merge, boundedRects);
+#if FPS
+        std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+#endif
+		camera >> image;
 
-		// Use images
-		if (argc > 2)
-		{
-			rgb = cv::imread(argv[1]);
-
-			// No data
-			if (!rgb.data)
-			{
-				std::cout << "No image data" << std::endl;
-				return -1;
-			}
-		}
-		else 
-		{
-				camera >> rgb;
-		}
-		cv::imshow("BGR Feed", rgb);
-		rgb.copyTo(image);
-
-		// Filters are only applied if last parameter is true, otherwise their windows are destroyed
-		gaussianBlurWindows(image, blur_ksize, sigmaX, sigmaY, apply_blur, blur);
-		hsvColorThresholdWindows(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd, apply_color, color);
-		dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
-		if (isAuton)
-			drawBoundedRectsWindows(image, focalLenFar, dist, height, calibStatus, contoursThresh, applyBoundedRects, boundedRects);
-		else
-			drawBoundedRectsWindows(image, focalLenClose, dist, height, calibStatus, contoursThresh, applyBoundedRects, boundedRects);
-		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
-		laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
-		houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
-		mergeFinalWindows(rgb, image, weight1, weight2, apply_merge, merge);
-		kill = cv::waitKey(5);
+		cv::imshow("RGB", image);
+		gaussianBlur(image, blur_ksize, sigmaX, sigmaY);
+		hsvColorThreshold(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd);
+		drawBoundedRects(image, focalLen, dist, height, contoursThresh, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, calcDist, vertAngle, horizAngle);
+        drawData(image, dist, horizAngle, vertAngle);
+        cv::imshow("Final", image);
+#if FPS
+        std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> timeElapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+        fps = 1.0 / timeElapsed.count();
+		
+		fprintf(pipe_gp, "%f %f\n", whileclock, fps);
+		avg_total += fps;
+		whileclock++;
+#endif
+		kill = cv:: waitKey(5);
 	}
+	
+#if FPS
+	double avg = avg_total / whileclock;
+	fprintf(pipe_gp, "%f %f\n", (double)whileclock * 6 / 5, avg);
+	fputs("e\n", pipe_gp);
+	int x = pclose(pipe_gp);
+#endif
+	
 	return 0;	
+}
+
+void sendData (udp_client_server::udp_client& client)
+{
+    double loopTime = 1.0 / LOOPS_PER_SEC;
+    std::string msg;
+
+    while (true)
+    {
+        // Stop sending data if an agreed symbol is received
+        if (buff[0] != '#')
+        {
+            clock_t start = clock();
+            // Check if the angles are not NaN or inf
+            if (std::isfinite(horizAngle) && std::isfinite(vertAngle) && std::abs(horizAngle) < 30.0 && vertAngle < 60.0)
+            {
+                msg = std::to_string(-1.0 * horizAngle) + " " + std::to_string(vertAngle);
+                std::cerr << "Sent Data:  " << msg << "\n";
+                client.send(msg.c_str(), strlen(msg.c_str()));
+            }
+
+            clock_t end = clock();
+            double timeElapsed = (double) (end - start) / CLOCKS_PER_SEC;	
+
+            // Pause until loop ends
+            if (timeElapsed < loopTime)
+            {
+                unsigned int microseconds = static_cast<int>((loopTime - timeElapsed) * MICROSEC_TO_SEC);
+                //std::cerr << "Loop took " << timeElapsed << " seconds and stalling for " << static_cast<double>(microseconds) / MICROSEC_TO_SEC << " seconds\n";
+                usleep(microseconds);
+            }
+            // Not on time
+            else 
+            {
+                //std::cerr << "Loop took " << timeElapsed << " seconds and new FPS = " << fps << " [ERROR]\n";
+            }
+        }
+    }    
+}
+
+void receiveData (udp_client_server::udp_server& server)
+{
+    int maxBufferSize = 50;
+    int maxWaitSec = 1;
+    while (true)
+    {
+        // Receive data from non-blocking server
+        server.timed_recv(buff, maxBufferSize, maxWaitSec);
+        std::cerr << "Received Data: " << buff << "\n";
+    }
+}
+
+void receivePing (udp_client_server::udp_server& server)
+{
+    int maxBufferSize = 1;
+    int maxWaitSec = 1;
+    char arr [] = "0";
+    while (arr[0] == '0')
+    {
+        // Receive data from non-blocking server
+        server.timed_recv(arr, maxBufferSize, maxWaitSec);
+    }
+    std::cerr << "Received Ping: " << arr << "\n";
 }
