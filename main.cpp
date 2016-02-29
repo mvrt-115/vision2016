@@ -10,11 +10,8 @@
 
 #include "udp_client_server.h"
 
-#include "include/logging/enumCvType.hpp"
-
 #include "include/utils/distance.hpp"
 
-#include "include/filters/selectMode.hpp"
 #include "include/filters/gaussianBlur.hpp"
 #include "include/filters/hsvColorThreshold.hpp"
 #include "include/filters/dilateErode.hpp"
@@ -167,7 +164,6 @@ void fastHSVThreshold(cv::Mat& image)
     cv::cvtColor(image, image, CV_HSV2BGR);
 }
 
-
 void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int contoursThresh, double sideRatio, double areaRatio, double minArea, double maxArea, double sideThreshold, double areaThreshold, double angleThreshold, double& calcDist, double& vertAngle, double& horizAngle)
 {
 	std::vector< std::vector<cv::Point> > contours;
@@ -181,6 +177,7 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int contoursT
 
 	cv::cvtColor(src, src, CV_GRAY2BGR);
 	src = cv::Mat::zeros(src.size(), CV_8UC3);
+
 #if 0
 	// Get the moments
 	std::vector<cv::Moments> mu(contours.size());
@@ -192,6 +189,7 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int contoursT
 	for(int i = 0; i < contours.size(); i++)
 		mc[i] = cv::Point2f(mu[i].m10 / mu[i].m00, mu[i].m01 / mu[i].m00);
 #endif
+
 	// Get the minimally sized bounded rectangles
 	std::vector<cv::RotatedRect> minRect( contours.size());
 	for(int i = 0; i < contours.size(); i++)
@@ -254,6 +252,19 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int contoursT
 		cv::Scalar color = cv::Scalar(255, 255, 0);
 		cv::drawContours(src, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
 	}
+
+    /*
+	// Draw the mass centers
+	for (int i = 0; i < mc.size(); i++)
+	{
+        cv::circle(src, mc[i], 5, cv::Scalar(255, 255, 0));
+	}
+	// Draw the corners of the contour object
+	for (int i = 0; i < c.size(); i++)
+	{
+        cv::circle(src, c[i], 5, cv::Scalar(0, 255, 0));
+	}
+	*/
 }
 
 std::vector<cv::Point> corners (std::vector<cv::Point>& pts, int screenWidth, int screenHeight)
@@ -438,17 +449,9 @@ int main( int argc, char *argv[])
 	cv::VideoCapture camera (0);
 	std::cerr << "Opened camera at port 0\n";
 
-	if(!camera.isOpened())
-	{
-		std::cerr << "Error: camera not opened successfully\n";
-		return -1;
-	}
+    cv::Mat image;
 
-	// Matrices for holding image data
-	cv::Mat image;
-
-	// Press q to quit the program
-	char kill = ' ';
+    char kill = ' ';
 
 	//while (whileclock < 200)
 	while ((kill != 'q'))
