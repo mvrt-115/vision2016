@@ -3,6 +3,8 @@ legos0/
 sophie0/
 
 vision
+startPing
+stopPing
 build/
 obj/
 .build_dir
