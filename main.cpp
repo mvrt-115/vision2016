@@ -21,8 +21,23 @@
 #include "include/filters/mergeFinal.hpp"
 
 const double PI = 3.14159265;
+// Measurements in inches
+const double TOWER_HEIGHT = 83;
+const double CAMERA_HEIGHT = 6;
+const double FOCAL_LENGTH = 555;
 const int LOOPS_PER_SEC = 1; 
 const int MICROSEC_TO_SEC = 1000000;
+const int CAMERA_NUM = 0;
+const int CALIB_DIST = 186;
+
+const std::string TARGET_ADDR = "10.1.15.2";
+const std::string HOST_ADDR = "10.1.15.8";
+const int UDP_PORT = 5810;
+
+const char START_SIGNAL = '@';
+const char STOP_SIGNAL = '#';
+const char RESUME_SIGNAL = '$';
+const char PAUSE_SIGNAL = '%';
 
 #define DEBUG 0
 #define FPS 1
@@ -238,8 +253,8 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int contoursT
         cv::line(src, cv::Point(src.cols / 2, mc.y), mc, cv::Scalar (255, 0, 255));
         cv::circle(src, mc, 5, cv::Scalar(255, 0, 255));
         // Draw the bottom left and right points of the goal
-        cv::circle(src, c[0], 5, cv::Scalar(255, 0, 255));
-        cv::circle(src, c[3], 5, cv::Scalar(255, 0, 255));
+        cv::circle(src, c[0], 5, cv::Scalar(255, 100, 100));
+        cv::circle(src, c[3], 5, cv::Scalar(255, 100, 100));
 
 		calcDist = calcDistance(rectPoints, focalLen, d, h);
 		horizAngle = calcHorizAngle(screenWidth, calcDist, c, mc);
@@ -370,11 +385,11 @@ int main( int argc, char *argv[])
 {
 	// gaussianBlur parameters
 	int blur_ksize = 7;
-	int sigmaX = 10;
-	int sigmaY = 10;
+	int sigmaX = 25;
+	int sigmaY = 25;
 
 	// hsvColorThreshold parameters
-	int hMin = 70;
+	int hMin = 135;
 	int hMax = 180;
 	int sMin = 0;
 	int sMax = 100;
@@ -385,25 +400,19 @@ int main( int argc, char *argv[])
 	int bitAnd = 1;
 
 	// drawBoundedRects parameters
-	double focalLen = 673.40;
-	double cameraHeight = 39;
-	const double TOWER_HEIGHT = 84;
-	int dist = 148;
-	//double vertAngle = 0;
-	//double horizAngle = 0;
 	double calcDist = 0;
 	// Tower height is 6 feet 11 inches (to the bottom of the tape) which is 83 inches
-	int height = TOWER_HEIGHT - cameraHeight;
+	int height = TOWER_HEIGHT - CAMERA_HEIGHT;
 	int contoursThresh = 140;
 
     // Shape threshold parameters
-    int s = 145;
-    int a = 35;
+    int s = 210;
+    int a = 30;
     int minA = 800;
-    int maxA = 25000;
-    int sideT = 100;
-    int areaT = 20;
-    int angleT = 40;
+    int maxA = 10000;
+    int sideT = 30;
+    int areaT = 30;
+    int angleT = 20;
     double sideRatio = (double) s / 100;
     double areaRatio = (double) a / 100;
     double minArea = (double) minA;
@@ -430,12 +439,10 @@ int main( int argc, char *argv[])
 	cv::namedWindow("Testing", cv::WINDOW_AUTOSIZE);
 #endif
 
-	std::string addr = "10.1.15.6";
-	std::string host = "10.1.15.8";
-	int port = 5810;
+	udp_client_server::udp_client client(TARGET_ADDR, UDP_PORT);
+	udp_client_server::udp_server server(HOST_ADDR, UDP_PORT);
 
-	udp_client_server::udp_client client(addr, port);
-	udp_client_server::udp_server server(host, port);
+    std::cerr << "\nPlease send initial ping to " << HOST_ADDR << "\n";
 
     std::thread listenForPing (receivePing, std::ref(server));
     listenForPing.join();
@@ -446,8 +453,13 @@ int main( int argc, char *argv[])
     std::thread netReceive (receiveData, std::ref(server));
     netReceive.detach();
 
-	cv::VideoCapture camera (0);
-	std::cerr << "Opened camera at port 0\n";
+	cv::VideoCapture camera (CAMERA_NUM);
+    if (!camera.isOpened())
+    {
+        std::cerr << "Error - Could not open camera at port " << CAMERA_NUM << "\n";
+        return -1;
+    }
+	std::cerr << "Opened camera at port " << CAMERA_NUM << "\n";
 
     cv::Mat image;
 
@@ -461,12 +473,12 @@ int main( int argc, char *argv[])
 #endif
 		camera >> image;
 
-		cv::imshow("RGB", image);
+		//cv::imshow("RGB", image);
 		gaussianBlur(image, blur_ksize, sigmaX, sigmaY);
 		hsvColorThreshold(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd);
-		drawBoundedRects(image, focalLen, dist, height, contoursThresh, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, calcDist, vertAngle, horizAngle);
-        drawData(image, dist, horizAngle, vertAngle);
-        cv::imshow("Final", image);
+		drawBoundedRects(image, FOCAL_LENGTH, CALIB_DIST, height, contoursThresh, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, calcDist, vertAngle, horizAngle);
+        drawData(image, CALIB_DIST, horizAngle, vertAngle);
+        //cv::imshow("Final", image);
 #if FPS
         std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> timeElapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
@@ -497,15 +509,19 @@ void sendData (udp_client_server::udp_client& client)
     while (true)
     {
         // Stop sending data if an agreed symbol is received
-        if (buff[0] != '#')
+        if (buff[0] != STOP_SIGNAL)
         {
             clock_t start = clock();
             // Check if the angles are not NaN or inf
-            if (std::isfinite(horizAngle) && std::isfinite(vertAngle) && std::abs(horizAngle) < 30.0 && vertAngle < 60.0)
+            if ((buff[0] == RESUME_SIGNAL || buff[0] == START_SIGNAL) && std::isfinite(horizAngle) && std::isfinite(vertAngle) && std::abs(horizAngle) < 30.0 && vertAngle < 60.0)
             {
-                msg = std::to_string(-1.0 * horizAngle) + " " + std::to_string(vertAngle);
+                msg = std::to_string(horizAngle) + " " + std::to_string(vertAngle);
                 std::cerr << "Sent Data:  " << msg << "\n";
                 client.send(msg.c_str(), strlen(msg.c_str()));
+            }
+            else
+            { 
+                std::cerr << "Data not sent, buff: " << buff << "\n";
             }
 
             clock_t end = clock();
@@ -535,7 +551,16 @@ void receiveData (udp_client_server::udp_server& server)
     {
         // Receive data from non-blocking server
         server.timed_recv(buff, maxBufferSize, maxWaitSec);
-        std::cerr << "Received Data: " << buff << "\n";
+        if (buff[0] == STOP_SIGNAL)
+            std::cerr << "Stopping\n";
+        else if (buff[0] == START_SIGNAL)
+            std::cerr << "Starting\n";
+        else if (buff[0] == RESUME_SIGNAL)
+            std::cerr << "Resuming\n";
+        else if (buff[0] == PAUSE_SIGNAL)
+            std::cerr << "Pausing\n";
+        else
+            std::cerr << "Received Data: " << buff << "\n";
     }
 }
 
@@ -549,5 +574,5 @@ void receivePing (udp_client_server::udp_server& server)
         // Receive data from non-blocking server
         server.timed_recv(arr, maxBufferSize, maxWaitSec);
     }
-    std::cerr << "Received Ping: " << arr << "\n";
+    std::cerr << "Received start signal: " << arr << "\n";
 }

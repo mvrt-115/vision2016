@@ -21,6 +21,12 @@
 #include "include/filters/depthDistanceWindows.hpp"
 
 const double PI = 3.14159265;
+// Measurements in inches
+const double TOWER_HEIGHT = 68;
+const double CAMERA_HEIGHT = 7;
+const int LOOPS_PER_SEC = 1; 
+const int MICROSEC_TO_SEC = 1000000;
+int calibDist = 110;
 
 double calcDistance (cv::Mat& image, cv::RotatedRect& boundedRect, double focalLen, int dist, int height, int isCalib);
 std::vector<cv::Point> corners (std::vector<cv::Point> pts, cv::Mat& img);
@@ -139,7 +145,7 @@ void shapeThreshold(cv::Mat& src, std::vector<std::vector<cv::Point> >& contour,
             cv::putText(debug, str, cv::Point(contour[i][0]), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 255, 255), 1, 8, false);
         }
         
-        cv::imshow("Debug Shape Threshold", debug);
+        //cv::imshow("Debug Shape Threshold", debug);
 	}
 }
 
@@ -205,7 +211,7 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, in
 			cv::line(pre, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
 		}
 	}
-    cv::imshow("Before shapeThreshold", pre);
+    //cv::imshow("Before shapeThreshold", pre);
     int goalInd = 0;
     double dist = 0;
 	// Bounded rectangle is the one at the 0th index
@@ -219,10 +225,10 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, in
         cv::circle(src, cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00), 5, cv::Scalar(255, 255, 0));
         // Check if the center of mass is inside the contour region and if it is, it is not the goal
         double dist = cv::pointPolygonTest(contours[i], cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00), true);
-        std::cerr << "Dist: " << dist << "\n";
+        //std::cerr << "Dist: " << dist << "\n";
         if (dist > -5 || dist < -15)
         {
-            std::cerr << "Contour Erased\n";
+            //std::cerr << "Contour Erased\n";
             contours.erase(contours.begin() + i);
             minRect.erase(minRect.begin() + i);
 			i--; //because vector just got smaller
@@ -230,7 +236,7 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, in
     }
 	if (contours.size() > 0)
 	{
-        std::cerr << "Contours Size: " << contours.size() << "\n";
+        //std::cerr << "Contours Size: " << contours.size() << "\n";
         cv::Moments mu = moments(contours[0], false);
         cv::Point2f mc = cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00);
 		c = corners(contours[goalInd], src);
@@ -457,9 +463,9 @@ int main( int argc, char *argv[])
 	int hough = 0;
 	int depth_dist = 0;
 	int merge = 0;
-	int boundedRects = 1;
-	int houghCircles = 1;
-    int shapeThreshold = 1;
+	int boundedRects = 0;
+	int houghCircles = 0;
+    int shapeThreshold = 0;
 
 	// Parameters for applying filters even if windows are closed
 	int apply_blur = 1;
@@ -469,7 +475,7 @@ int main( int argc, char *argv[])
 	int apply_laplacian = 0;
 	int apply_hough = 0;
 	int apply_depth_dist = 0;
-	int apply_merge = 1;
+	int apply_merge = 0;
 	int applyBoundedRects = 1;
 	int applyHoughCircles = 0;
     int applyShapeThreshold = 1;
@@ -480,7 +486,7 @@ int main( int argc, char *argv[])
 	int sigmaY = 10;
 
 	// hsvColorThreshold parameters
-	int hMin = 75;
+	int hMin = 90;
 	int hMax = 180;
 	int sMin = 0;
 	int sMax = 100;
@@ -502,7 +508,7 @@ int main( int argc, char *argv[])
 	int threshLow = 100;
 	int threshHigh = 245;
 	
-	// laplacianSharpen parameters
+	// laplaci
 	int laplacian_ksize = 3;
 	// optional scale value added to image
 	int scale = 1;
@@ -528,11 +534,8 @@ int main( int argc, char *argv[])
 	// drawBoundedRects parameters
 	bool isAuton = false;
 	double focalLen = 675.0;
-	double cameraHeight = 39;
-	const double TOWER_HEIGHT = 84;
-	int dist = 148;
 	// Tower height is 7 feet 1 inches which is 85 inches
-	int height = TOWER_HEIGHT - cameraHeight;
+	int height = TOWER_HEIGHT - CAMERA_HEIGHT;
 	int calibStatus = 0;
 	int contoursThresh = 140;
 
@@ -622,18 +625,18 @@ int main( int argc, char *argv[])
 			camera >> rgb;
 		}
 		rgb.copyTo(image);
-		cv::imshow("BGR Feed", rgb);
+		//cv::imshow("BGR Feed", rgb);
 
 		// Filters are only applied if last parameter is true, otherwise their windows are destroyed
 		gaussianBlurWindows(image, blur_ksize, sigmaX, sigmaY, apply_blur, blur);
 		hsvColorThresholdWindows(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd, apply_color, color);
-		dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
-		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
+		//dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
+		//cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
 		//laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
-		houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
-		houghCirclesWindows(image, hcMinRadius, hcMaxRadius, threshLow, threshHigh, houghCircles, applyHoughCircles);
-		drawBoundedRectsWindows(image, focalLen, dist, height, calibStatus, contoursThresh, applyBoundedRects, boundedRects, s, a, minA, maxA, sideT, areaT, angleT, applyShapeThreshold, shapeThreshold);
-		mergeFinalWindows(rgb, image, weight1, weight2, apply_merge, merge);
+		//houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
+		//houghCirclesWindows(image, hcMinRadius, hcMaxRadius, threshLow, threshHigh, houghCircles, applyHoughCircles);
+		drawBoundedRectsWindows(image, focalLen, calibDist, height, calibStatus, contoursThresh, applyBoundedRects, boundedRects, s, a, minA, maxA, sideT, areaT, angleT, applyShapeThreshold, shapeThreshold);
+		//mergeFinalWindows(rgb, image, weight1, weight2, apply_merge, merge);
 		kill = cv:: waitKey(5);
 		
 	}

@@ -26,8 +26,8 @@ void hsvColorThresholdWindows(cv::Mat &output, int &hMin, int &hMax, int &sMin, 
 	{	
 		hsvColorThreshold(output, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd);
 
-		cv::namedWindow("HSV Color Threshold Output", cv::WINDOW_AUTOSIZE);
-		cv::imshow("HSV Color Threshold Output", output);
+		//cv::namedWindow("HSV Color Threshold Output", cv::WINDOW_AUTOSIZE);
+		//cv::imshow("HSV Color Threshold Output", output);
 	}
 
 	else if (!apply)
