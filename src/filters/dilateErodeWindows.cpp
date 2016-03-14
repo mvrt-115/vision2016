@@ -10,21 +10,21 @@ void dilateErodeWindows(cv::Mat &output, cv::Mat &element, int &holes, int &nois
 		cv::createTrackbar("Noise Iterations", "Dilate and Erode Editor", &noise, 15);
 		cv::createTrackbar("Hole Iterations", "Dilate and Erode Editor", &holes, 15);
 	}
-
-   	else if (!visible)
+   	else
    	{
 		cv::destroyWindow("Dilate and Erode Editor");	 
+		cv::destroyWindow("Dilate and Erode Output");
 	}
-	
 	if (apply)
 	{
 		dilateErode(output, element, holes, noise);
-
-		cv::namedWindow("Dilate and Erode Output", cv::WINDOW_AUTOSIZE);
-		cv::imshow("Dilate and Erode Output", output);
+        if (visible)
+        {
+            cv::namedWindow("Dilate and Erode Output", cv::WINDOW_AUTOSIZE);
+            cv::imshow("Dilate and Erode Output", output);
+        }
 	}
-
-	else if (!apply)
+	else
 	{
 		cv::destroyWindow("Dilate and Erode Output");
 	}

@@ -16,22 +16,28 @@ void hsvColorThresholdWindows(cv::Mat &output, int &hMin, int &hMax, int &sMin, 
 		cv::createTrackbar("Debug Mode", "HSV Color Threshold Editor", &debugMode, 1);
 		cv::createTrackbar("BitAnd", "HSV Color Threshold Editor", &bitAnd, 1);
 	} 
-	
-	else if (!visible)
-	{
+    else
+    {
 		cv::destroyWindow("HSV Color Threshold Editor");	 
-	}
-	
+		cv::destroyWindow("HSV Color Threshold Output");
+        // Never enter debug mode if the editor is not visible
+        debugMode = false;
+    }   
 	if (apply)
 	{	
 		hsvColorThreshold(output, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd);
-
-		//cv::namedWindow("HSV Color Threshold Output", cv::WINDOW_AUTOSIZE);
-		//cv::imshow("HSV Color Threshold Output", output);
+        if (visible)
+        {
+            cv::namedWindow("HSV Color Threshold Output", cv::WINDOW_AUTOSIZE);
+            cv::imshow("HSV Color Threshold Output", output);
+        }
 	}
-
-	else if (!apply)
+    else
 	{
 		cv::destroyWindow("HSV Color Threshold Output");
+        debugMode = false;
+		cv::destroyWindow("Hue-Filtered Debug");
+        cv::destroyWindow("Saturation-Filtered Debug");
+        cv::destroyWindow("Value-Filtered Debug");	
 	}
 }

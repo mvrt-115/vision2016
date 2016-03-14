@@ -11,21 +11,21 @@ void laplacianSharpenWindows(cv::Mat &output, int &ddepth, int &laplacian_ksize,
 		cv::createTrackbar("Scale", "Laplacian Sharpen Editor", &scale, 9);
 		cv::createTrackbar("Delta", "Laplacian Sharpen Editor", &delta, 9);
 	}
-
-   	else if (!visible)
+   	else
    	{
 		cv::destroyWindow("Laplacian Sharpen Editor");	 
+		cv::destroyWindow("Laplacian Sharpen Output");
 	}
-
 	if (apply)
 	{
 		laplacianSharpen(output, ddepth, laplacian_ksize, scale, delta);
-
-		cv::namedWindow("Laplacian Sharpen Output", cv::WINDOW_AUTOSIZE);
-		cv::imshow("Laplacian Sharpen Output", output);
+        if (visible)
+        {
+            cv::namedWindow("Laplacian Sharpen Output", cv::WINDOW_AUTOSIZE);
+            cv::imshow("Laplacian Sharpen Output", output);
+        }
 	}
-
-	else if (!apply)
+	else
 	{
 		cv::destroyWindow("Laplacian Sharpen Output");
 	}

@@ -53,19 +53,21 @@ void shapeThresholdWindows(cv::Mat& output, std::vector<std::vector<cv::Point> >
 		cv::createTrackbar("+- Area Threshold (Out of 100)", "Shape Threshold Editor", &areaThreshold, 100);
 		cv::createTrackbar("+- Angle Threshold", "Shape Threshold Editor", &angleThreshold, 100);
     }
-	else if (!visible)
+	else
 	{
 		cv::destroyWindow("Shape Threshold Editor");
+		cv::destroyWindow("Shape Threshold Output");
 	}
-
 	if (apply)
 	{
 		shapeThreshold(output, contours, rect, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, goalInd);
-
-		cv::namedWindow("Shape Threshold Output", CV_WINDOW_AUTOSIZE);
-		cv::imshow("Shape Threshold Output", output);
+        if (visible)
+        {
+            cv::namedWindow("Shape Threshold Output", CV_WINDOW_AUTOSIZE);
+            cv::imshow("Shape Threshold Output", output);
+        }
 	}
-	else if (!apply)
+	else
 	{
 		cv::destroyWindow("Shape Threshold Output");
 	}
@@ -100,20 +102,12 @@ void shapeThreshold(cv::Mat& src, std::vector<std::vector<cv::Point> >& contour,
         }
         
         // If any of the following are true, the shape is not the goal
-        if //(std::abs((height / width) - sideRatio) > sideThreshold || 
-            //std::abs((contourArea / rectArea) - areaRatio) > areaThreshold || 
-            (rectArea < minArea)
-            //rectArea > maxArea || 
-            //(width > height && (std::abs(rect[i].angle) > angleThreshold)) || 
-            //(width < height && (std::abs(std::abs(rect[i].angle) - 90) > angleThreshold)))
-        /*
         if (std::abs((height / width) - sideRatio) > sideThreshold || 
             std::abs((contourArea / rectArea) - areaRatio) > areaThreshold || 
             rectArea < minArea || 
             rectArea > maxArea || 
             (width > height && (std::abs(rect[i].angle) > angleThreshold)) || 
             (width < height && (std::abs(std::abs(rect[i].angle) - 90) > angleThreshold)))
-        */
 		{
             //sprintf(str, "H");
             //cv::putText(debug, str, cv::Point((vert[0].x + height / 2), vert[0].y), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 255, 255), 1, 8, false);
@@ -135,7 +129,6 @@ void shapeThreshold(cv::Mat& src, std::vector<std::vector<cv::Point> >& contour,
             contour.erase(contour.begin() + i);
 			rect.erase(rect.begin() + i);
 			i--; //because vector just got smaller
-			//std::cerr << "contour erased..." << "\n";
 		}
         else
         {
@@ -160,19 +153,21 @@ void drawBoundedRectsWindows(cv::Mat& output, double focalLen, int& d, int& h, i
 		cv::createTrackbar("Calibration Height", "Distance and Shooting Angles Editor", &h, 200);
 		cv::createTrackbar("Contours Threshold", "Distance and Shooting Angles Editor", &contoursThresh, 200);
 	}
-	else if (!visible)
+	else
 	{
 		cv::destroyWindow("Distance and Shooting Angles Editor");
+		cv::destroyWindow("Distance and Shooting Angles Output");
 	}
-
 	if (apply)
 	{
 		drawBoundedRects(output, focalLen, d, h, calib, contoursThresh, sideRatio, areaRatio, minArea, maxArea, sideThreshold, areaThreshold, angleThreshold, shapeThresholdApply, shapeThresholdVisible);
-
-		cv::namedWindow("Distance and Shooting Angles Output", CV_WINDOW_AUTOSIZE);
-		cv::imshow("Distance and Shooting Angles Output", output);
+        if (visible)
+        {
+            cv::namedWindow("Distance and Shooting Angles Output", CV_WINDOW_AUTOSIZE);
+            cv::imshow("Distance and Shooting Angles Output", output);
+        }
 	}
-	else if (!apply)
+	else
 	{
 		cv::destroyWindow("Distance and Shooting Angles Output");
 	}
@@ -197,21 +192,6 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, in
 		minRect[i] = cv::minAreaRect(cv::Mat(contours[i]));
 
 	std::vector<cv::Point> c;
-    cv::Mat pre = cv::Mat::zeros(src.size(), CV_8UC3);
-	for(int i = 0; i < contours.size(); i++)
-	{
-		cv::Point2f rect_points[4]; 
-		minRect[i].points(rect_points);
-		cv::Scalar color = cv::Scalar(0, 255, 0);
-		cv::drawContours(pre, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
-		color = cv::Scalar(0, 255, 255);
-		// Draw the bounded rectangle
-		for(int j = 0; j < 4; j++)
-		{
-			cv::line(pre, rect_points[j], rect_points[(j+1)%4], color, 1, 8);
-		}
-	}
-    //cv::imshow("Before shapeThreshold", pre);
     int goalInd = 0;
     double dist = 0;
 	// Bounded rectangle is the one at the 0th index
@@ -225,10 +205,8 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int calib, in
         cv::circle(src, cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00), 5, cv::Scalar(255, 255, 0));
         // Check if the center of mass is inside the contour region and if it is, it is not the goal
         double dist = cv::pointPolygonTest(contours[i], cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00), true);
-        //std::cerr << "Dist: " << dist << "\n";
         if (dist > -5 || dist < -15)
         {
-            //std::cerr << "Contour Erased\n";
             contours.erase(contours.begin() + i);
             minRect.erase(minRect.begin() + i);
 			i--; //because vector just got smaller
@@ -404,24 +382,24 @@ void houghCirclesWindows(cv::Mat& img, int& hcMinRadius, int& hcMaxRadius, int& 
 		cv::createTrackbar("Min Radius", "Hough Circles Editor", &hcMaxRadius, 500);
 		cv::createTrackbar("Max Radius", "Hough Circles Editor", &hcMinRadius, 500);
 	}
-	else if (!visible)
+	else
 	{
 		cv::destroyWindow("Hough Circles Editor");
+		cv::destroyWindow("Hough Circles Output");
 	}
-
 	if (apply)
 	{
 		houghCircles(img, hcMinRadius, hcMaxRadius, threshLow, threshHigh);
-
-		cv::namedWindow("Hough Circles Output", CV_WINDOW_AUTOSIZE);
-		cv::imshow("Hough Circles Output", img);
+        if (visible)
+        {
+            cv::namedWindow("Hough Circles Output", CV_WINDOW_AUTOSIZE);
+            cv::imshow("Hough Circles Output", img);
+        }
 	}
-	else if (!apply)
+	else
 	{
 		cv::destroyWindow("Hough Circles Output");
 	}
-
-
 }
 
 void houghCircles(cv::Mat& img, int hcMinRadius, int hcMaxRadius, int& threshLow, int& threshHigh)
@@ -430,26 +408,20 @@ void houghCircles(cv::Mat& img, int hcMinRadius, int hcMaxRadius, int& threshLow
 
 	if (enumCvType(img) == "CV_8UC3")
 		Canny(img, img, threshLow, threshHigh);
-
  	// Apply the Hough Transform to find the circles
  	cv::HoughCircles( img, circles, CV_HOUGH_GRADIENT, 2, img.rows/8, hcMaxRadius, hcMinRadius);
-	
-	
-	
 	cvtColor(img, img, CV_GRAY2BGR);
-	
 
   	// Draw the circles detected
   	for( size_t i = 0; i < circles.size(); i++ )
   	{
-      		cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-      		int radius = cvRound(circles[i][2]);
-     		// circle center
-      		cv::circle(img, center, 3, cv::Scalar(0,255,0), -1, 8, 0 );
-      		// circle outline
-      		cv::circle(img, center, radius, cv::Scalar(0,0,255), 3, 8, 0 );
+        cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+        int radius = cvRound(circles[i][2]);
+        // circle center
+        cv::circle(img, center, 3, cv::Scalar(0,255,0), -1, 8, 0 );
+        // circle outline
+        cv::circle(img, center, radius, cv::Scalar(0,0,255), 3, 8, 0 );
    	}
-
 }
 
 int main( int argc, char *argv[])
@@ -630,13 +602,13 @@ int main( int argc, char *argv[])
 		// Filters are only applied if last parameter is true, otherwise their windows are destroyed
 		gaussianBlurWindows(image, blur_ksize, sigmaX, sigmaY, apply_blur, blur);
 		hsvColorThresholdWindows(image, hMin, hMax, sMin, sMax, vMin, vMax, debugMode, bitAnd, apply_color, color);
-		//dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
-		//cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
-		//laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
-		//houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
-		//houghCirclesWindows(image, hcMinRadius, hcMaxRadius, threshLow, threshHigh, houghCircles, applyHoughCircles);
+		dilateErodeWindows(image, element, holes, noise, apply_dilate_erode, dilate_erode);
+		cannyEdgeDetectWindows(image, threshLow, threshHigh, apply_edge, edge);
+		laplacianSharpenWindows(image, ddepth, laplacian_ksize, scale, delta, apply_laplacian, laplacian);
+		houghLinesWindows(image, rho, theta, threshold, lineMin, maxGap, apply_hough, hough);
+		houghCirclesWindows(image, hcMinRadius, hcMaxRadius, threshLow, threshHigh, houghCircles, applyHoughCircles);
 		drawBoundedRectsWindows(image, focalLen, calibDist, height, calibStatus, contoursThresh, applyBoundedRects, boundedRects, s, a, minA, maxA, sideT, areaT, angleT, applyShapeThreshold, shapeThreshold);
-		//mergeFinalWindows(rgb, image, weight1, weight2, apply_merge, merge);
+		mergeFinalWindows(rgb, image, weight1, weight2, apply_merge, merge);
 		kill = cv:: waitKey(5);
 		
 	}

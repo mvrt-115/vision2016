@@ -2,7 +2,7 @@
 
 void gaussianBlurWindows(cv::Mat &output, int &blur_ksize, int &sigmaX, int &sigmaY, int &apply, bool visible)
 {
-	if (visible) // Open windows with trackbars
+	if (visible)
    	{
 		cv::namedWindow("Gaussian Blur Editor", cv::WINDOW_AUTOSIZE);
 
@@ -11,21 +11,21 @@ void gaussianBlurWindows(cv::Mat &output, int &blur_ksize, int &sigmaX, int &sig
 		cv::createTrackbar("Sigma X", "Gaussian Blur Editor", &sigmaX, 100);
 		cv::createTrackbar("Sigma Y", "Gaussian Blur Editor", &sigmaY, 100);
 	}
-
-   	else if (!visible) // Destroy windows
+   	else
 	{
 		cv::destroyWindow("Gaussian Blur Editor");	
+		cv::destroyWindow("Gaussian Blur Output");
 	}
-
-	if (apply) // Apply filter (able to apply even when windows are not visible)
+	if (apply)
 	{
 		gaussianBlur(output, blur_ksize, sigmaX, sigmaY);
-
-		cv::namedWindow("Gaussian Blur Output", cv::WINDOW_AUTOSIZE);
-		//cv::imshow("Gaussian Blur Output", output);
+        if (visible)
+        {
+            cv::namedWindow("Gaussian Blur Output", cv::WINDOW_AUTOSIZE);
+            cv::imshow("Gaussian Blur Output", output);
+        }
 	}
-
-	else if (!apply) // Destroy old output windows
+	else
 	{
 		cv::destroyWindow("Gaussian Blur Output");
 	}

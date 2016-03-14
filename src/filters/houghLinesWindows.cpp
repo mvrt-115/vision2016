@@ -13,21 +13,21 @@ void houghLinesWindows(cv::Mat &output, int &rho, int &theta, int &threshold, in
 		cv::createTrackbar("LineMin", "Hough Lines Editor", &lineMin, 400);
 		cv::createTrackbar("MaxGap", "Hough Lines Editor", &maxGap, 400);
 	}
-
-   	else if (!visible)
+   	else
 	{
 		cv::destroyWindow("Hough Lines Editor");	
+		cv::destroyWindow("Hough Lines Output");
 	}
-	
 	if (apply)
 	{
 		houghLines(output, rho, theta, threshold, lineMin, maxGap);
-
-		cv::namedWindow("Hough Lines Output", cv::WINDOW_AUTOSIZE);
-		cv::imshow("Hough Lines Output", output);
+        if (visible)
+        {
+            cv::namedWindow("Hough Lines Output", cv::WINDOW_AUTOSIZE);
+            cv::imshow("Hough Lines Output", output);
+        }
 	}	
-
-	else if (!apply)
+	else
 	{
 		cv::destroyWindow("Hough Lines Output");
 	}
