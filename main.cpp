@@ -442,7 +442,7 @@ int main( int argc, char *argv[])
 	udp_client_server::udp_client client(TARGET_ADDR, UDP_PORT);
 	udp_client_server::udp_server server(HOST_ADDR, UDP_PORT);
 
-    std::cerr << "\nPlease send initial ping to " << HOST_ADDR << "\n";
+    std::cerr << "\nPlease send initial ping to " << HOST_ADDR << "\n\n";
 
     std::thread listenForPing (receivePing, std::ref(server));
     listenForPing.join();
@@ -551,6 +551,7 @@ void receiveData (udp_client_server::udp_server& server)
     {
         // Receive data from non-blocking server
         server.timed_recv(buff, maxBufferSize, maxWaitSec);
+        std::cerr << "Received Data: " << buff << "\n";
         if (buff[0] == STOP_SIGNAL)
             std::cerr << "Stopping\n";
         else if (buff[0] == START_SIGNAL)
@@ -559,8 +560,6 @@ void receiveData (udp_client_server::udp_server& server)
             std::cerr << "Resuming\n";
         else if (buff[0] == PAUSE_SIGNAL)
             std::cerr << "Pausing\n";
-        else
-            std::cerr << "Received Data: " << buff << "\n";
     }
 }
 
@@ -569,7 +568,7 @@ void receivePing (udp_client_server::udp_server& server)
     int maxBufferSize = 1;
     int maxWaitSec = 1;
     char arr [] = "0";
-    while (arr[0] == '0')
+    while (arr[0] != START_SIGNAL)
     {
         // Receive data from non-blocking server
         server.timed_recv(arr, maxBufferSize, maxWaitSec);

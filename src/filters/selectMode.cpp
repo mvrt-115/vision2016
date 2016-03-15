@@ -1,6 +1,6 @@
 #include <filters/selectMode.hpp>
 
-void selectMode(int &blur, int &color, int &dilate_erode, int &edge, int &laplacian, int &hough, int &depth_dist, int &merge, int& boundedRects)
+void selectMode(int &blur, int &color, int &dilate_erode, int &edge, int &laplacian, int &hough, int &shapeThreshold, int &merge, int& boundedRects)
 {
 	cv::namedWindow("Filter Options", cv::WINDOW_AUTOSIZE);
 

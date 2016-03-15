@@ -578,7 +578,7 @@ int main( int argc, char *argv[])
 		{
 			cv::waitKey(0);
 		}
-		selectMode(blur, color, dilate_erode, edge, laplacian, hough, depth_dist, merge, boundedRects);
+		selectMode(blur, color, dilate_erode, edge, laplacian, hough, shapeThreshold, merge, boundedRects);
 
 		// Use images
 		if (argc > 2)
