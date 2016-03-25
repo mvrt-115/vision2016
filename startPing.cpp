@@ -16,7 +16,8 @@ void sendPing (udp_client_server::udp_client& client)
 
 int main ()
 {
-    std::string addr = "10.1.15.8";
+    //std::string addr = "10.1.15.8";
+    std::string addr = "localhost";
     int port = 5810;
     udp_client_server::udp_client client (addr, port);
     sendPing(client);

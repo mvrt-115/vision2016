@@ -11,6 +11,6 @@ void selectMode(int &blur, int &color, int &dilate_erode, int &edge, int &laplac
 	cv::createTrackbar("Laplacian Filter", "Filter Options", &laplacian, 1);
 	cv::createTrackbar("Hough Line Filter", "Filter Options", &hough, 1);
 	cv::createTrackbar("Merge After Filtering", "Filter Options", &merge, 1);
-	cv::createTrackbar("Depth Distance Calculations", "Filter Options", &depth_dist, 1);
+    cv::createTrackbar("Shape Threshold", "Filter Options", &shapeThreshold, 1);
 	cv::createTrackbar("Distance and Angles Calculations", "Filter Options", &boundedRects, 1);
 }
