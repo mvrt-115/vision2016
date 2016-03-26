@@ -39,10 +39,8 @@ double initVelocity = 0;
 double fps = 0;
 
 char buff[50];
-//const std::string TARGET_ADDR = "10.1.15.2";
-//const std::string HOST_ADDR = "10.1.15.8";
-const std::string TARGET_ADDR = "localhost";
-const std::string HOST_ADDR = "localhost";
+const std::string TARGET_ADDR = "10.1.15.2";
+const std::string HOST_ADDR = "10.1.15.8";
 const int UDP_PORT = 5810;
 const char START_SIGNAL = '@';
 const char STOP_SIGNAL = '#';
@@ -150,8 +148,8 @@ void drawBoundedRects(cv::Mat& src, double focalLen, int d, int h, int contoursT
 		hypotenuse = calcHypotenuse(rectPoints, focalLen, d, h);
         int distance = std::pow(hypotenuse, 2) - std::pow(h, 2);
 		yaw = calcYaw(screenWidth, hypotenuse, c, mc);
-		//pitch = calcPitch(h, distance);
-        pitch = getPitch(h, distance);
+		pitch = calcPitch(h, distance);
+        //pitch = getPitch(h, distance);
         initVelocity = getInitialVelocity(h, distance, pitch);
         if (DEBUG)
         {
@@ -210,11 +208,13 @@ std::vector<cv::Point> corners (std::vector<cv::Point>& pts, int screenWidth, in
 	return c;
 }
 
+// Calculate the pitch for a straight line of sight to the tower goal
 double calcPitch(int height, int dist)
 {
 	return ((static_cast<double>(height) / dist) * 180 / PI);
 }
 
+// Calculate the yaw to turn relative to the current yaw
 double calcYaw(int screenWidth, double xDist, std::vector<cv::Point> corners, cv::Point2f& mc)
 {
 	double wPixel = distance2D(corners[0].x, corners[3].x);
@@ -227,6 +227,7 @@ double calcYaw(int screenWidth, double xDist, std::vector<cv::Point> corners, cv
 	return theta;
 }
 
+// Calculate the hypotenuse length (minimal distance) towards the tower goal
 double calcHypotenuse (cv::Point2f rectPoints[4], double focalLen, int dist, int height)
 {
 	// 20 inches real width
@@ -262,13 +263,13 @@ void drawData(cv::Mat& image, double distance, double yaw, double pitch)
 	cv::putText(image, str, cv::Point(10, 470), CV_FONT_HERSHEY_COMPLEX_SMALL, 0.75, cv::Scalar(255, 0, 200), 1, 8, false);
 }
 
-// Returns the pitch towards the tower goal
+// Get the pitch towards the tower goal that will hit the goal at the apex of a parabola
 double getPitch (int height, int distance)
 {
     return std::atan(2.0 * height / distance);
 }
 
-// Returns the initial velocity to hit the tower goal at the apex
+// Get the initial velocity to hit the tower goal at the apex using kinematics
 double getInitialVelocity (int height, double distance, double pitch)
 {
     const double GRAVITY = 9.81;
@@ -295,7 +296,7 @@ int main( int argc, char *argv[])
 
 	// drawBoundedRects parameters
 	double calcDist = 0;
-	// Tower height is 7 feet (to the bottom of the tape) which is 84 inches
+    // Calculate the displacement along the z axis
 	int height = TOWER_HEIGHT - CAMERA_HEIGHT;
 	int contoursThresh = 140;
 
@@ -394,7 +395,6 @@ void sendData (udp_client_server::udp_client& client)
         {
             clock_t start = clock();
             // Check if the angles are not NaN or inf and within restrictions
-            //if ((buff[0] == RESUME_SIGNAL || buff[0] == START_SIGNAL) && std::isfinite(yaw) && std::isfinite(pitch) && std::abs(yaw) < 30.0 && pitch < 90.0)
             if ((buff[0] == GET_SIGNAL || buff[0] == START_SIGNAL) && std::isfinite(yaw) && std::isfinite(pitch) && std::abs(yaw) < 30.0 && pitch < 90.0)
             {
 
